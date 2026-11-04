@@ -20,6 +20,25 @@ export default function LoginPage() {
   const [showIosInstallModal, setShowIosInstallModal] = useState(false);
   const [modalDialog, setModalDialog] = useState<ModalDialogConfig | null>(null);
 
+  // Cek apakah sudah pernah login sebelumnya (Session Persistence)
+  useEffect(() => {
+    try {
+      const savedUserStr = localStorage.getItem('bumiayu_auth_user');
+      const savedRole = localStorage.getItem('bumiayu_role');
+      if (savedUserStr && savedRole) {
+        if (savedRole === 'owner') {
+          router.replace('/admin');
+          return;
+        } else {
+          router.replace('/sales');
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Error checking saved session', e);
+    }
+  }, [router]);
+
   // Lock scroll saat modal terbuka
   useEffect(() => {
     if (showIosInstallModal || modalDialog?.isOpen) {
@@ -102,6 +121,16 @@ export default function LoginPage() {
           authError.message.includes('fetch')
         ) {
           const detectedRole = cleanUsername.includes('admin') || cleanUsername.includes('owner') ? 'owner' : 'sales';
+          const simUser = {
+            id: detectedRole === 'owner' ? '00000000-0000-0000-0000-000000000001' : '00000000-0000-0000-0000-000000000002',
+            email: virtualEmail,
+            username: cleanUsername,
+            full_name: detectedRole === 'owner' ? 'Owner BumiAyu' : 'Sales Budi Santoso',
+            role: detectedRole,
+          };
+          localStorage.setItem('bumiayu_auth_user', JSON.stringify(simUser));
+          localStorage.setItem('bumiayu_role', detectedRole);
+
           setModalDialog({
             isOpen: true,
             type: 'alert',
@@ -147,6 +176,16 @@ export default function LoginPage() {
           profileData?.role ||
           metaRole ||
           (cleanUsername.includes('admin') || cleanUsername.includes('owner') ? 'owner' : 'sales');
+
+        const authUser = {
+          id: authData.user.id,
+          email: authData.user.email,
+          username: cleanUsername,
+          full_name: (profileData as any)?.full_name || authData.user.user_metadata?.full_name || cleanUsername,
+          role: finalRole,
+        };
+        localStorage.setItem('bumiayu_auth_user', JSON.stringify(authUser));
+        localStorage.setItem('bumiayu_role', finalRole);
 
         // Pengalihan halaman otomatis berdasarkan role
         if (finalRole === 'owner') {
@@ -247,7 +286,7 @@ export default function LoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Masukkan username Anda"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-slate-950 dark:border-slate-700 dark:text-white dark:placeholder-slate-500 transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-slate-950 dark:border-slate-700 dark:text-white dark:placeholder-slate-500 dark:focus:bg-slate-900 transition-all font-medium"
                 />
               </div>
             </div>
@@ -266,7 +305,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-slate-950 dark:border-slate-700 dark:text-white dark:placeholder-slate-500 transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-slate-950 dark:border-slate-700 dark:text-white dark:placeholder-slate-500 dark:focus:bg-slate-900 transition-all font-medium"
                 />
               </div>
             </div>

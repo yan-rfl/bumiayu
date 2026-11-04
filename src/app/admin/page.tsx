@@ -212,13 +212,27 @@ export default function AdminDashboardPage() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) {
+
+      let activeUser = session?.user;
+      if (!activeUser) {
+        try {
+          const savedUserStr = localStorage.getItem('bumiayu_auth_user');
+          if (savedUserStr) {
+            activeUser = JSON.parse(savedUserStr);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      if (!activeUser) {
         router.push('/');
         return;
       }
-      setAdminUser(session.user);
-      await loadOrders();
+      setAdminUser(activeUser);
+      // Muat inventory fisik terlebih dahulu agar validasi stok instan & akurat
       await loadInventoryAndAudit();
+      await loadOrders();
       await loadStores();
     }
     init();
@@ -495,21 +509,26 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Helper: Cek Peringatan Stok Gudang Kurang / Habis
+  // Helper: Cek Peringatan Stok Gudang Kurang / Habis (Hanya jika inventory selesai di-load)
   const getStockAlert = (order: any) => {
     if (order.status !== 'SUBMITTED' && order.status !== 'PENDING_PAYMENT') return null;
     if (!order.items || order.items.length === 0) return null;
+    // Hindari warning palsu saat data inventaris belum termuat di memori
+    if (!inventoryList || inventoryList.length === 0) return null;
 
     const lowStockItems: { name: string; needed: number; available: number }[] = [];
 
     for (const it of order.items) {
       const p = inventoryList.find((prod) => prod.id === it.product_id);
-      const available = p ? (p.stock_base_unit ?? 0) : 0;
+      // Validasi hanya jika data produk ditemukan di master inventaris gudang
+      if (!p) continue;
+
+      const available = Number(p.stock_base_unit ?? 0);
       const needed = (it.quantity || 0) * (it.conversion_qty || 1);
 
       if (available < needed || available <= 0) {
         lowStockItems.push({
-          name: it.product?.name || p?.name || 'Produk',
+          name: it.product?.name || p.name || 'Produk',
           needed,
           available,
         });
@@ -878,9 +897,15 @@ export default function AdminDashboardPage() {
   };
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/');
+    try {
+      localStorage.removeItem('bumiayu_auth_user');
+      localStorage.removeItem('bumiayu_role');
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error(e);
+    }
+    router.replace('/');
   };
 
   const filteredOrders = orders.filter((o) => {

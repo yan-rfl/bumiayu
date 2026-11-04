@@ -261,15 +261,27 @@ export default function SalesPWAPage() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      if (!session) {
+      let activeUser = session?.user;
+      if (!activeUser) {
+        try {
+          const savedUserStr = localStorage.getItem('bumiayu_auth_user');
+          if (savedUserStr) {
+            activeUser = JSON.parse(savedUserStr);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      if (!activeUser) {
         router.push('/');
         return;
       }
 
-      setSalesUser(session.user);
+      setSalesUser(activeUser);
       await loadMasterData();
-      await loadTodayRoute(session.user.id);
-      await loadMyOrders(session.user.id);
+      await loadTodayRoute(activeUser.id);
+      await loadMyOrders(activeUser.id);
     }
     init();
   }, [router]);
@@ -609,9 +621,15 @@ export default function SalesPWAPage() {
   };
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/');
+    try {
+      localStorage.removeItem('bumiayu_auth_user');
+      localStorage.removeItem('bumiayu_role');
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error(e);
+    }
+    router.replace('/');
   };
 
   // Filter Toko & Rute
@@ -679,14 +697,14 @@ export default function SalesPWAPage() {
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 pb-20">
       {/* HEADER SALES */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-2xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm">
-            <Truck className="w-5 h-5" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
+            <Truck className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-sm font-bold leading-tight">Sales Lapangan</h1>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-              {salesUser?.user_metadata?.full_name || 'BumiAyu Sales'}
+            <h1 className="text-base font-extrabold leading-tight">Sales Lapangan</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              {salesUser?.full_name || salesUser?.user_metadata?.full_name || 'BumiAyu Sales'}
             </p>
           </div>
         </div>
@@ -694,20 +712,20 @@ export default function SalesPWAPage() {
         <div className="flex items-center gap-2">
           {/* Status Sinyal */}
           <span
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${
               isOnline
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800'
                 : 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-800'
             }`}
           >
-            {isOnline ? <Wifi className="w-3 h-3 text-emerald-600" /> : <WifiOff className="w-3 h-3 text-amber-600" />}
+            {isOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-600" /> : <WifiOff className="w-3.5 h-3.5 text-amber-600" />}
             {isOnline ? 'Online' : 'Offline'}
           </span>
 
           <button
             onClick={handleLogout}
             title="Keluar"
-            className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -769,10 +787,10 @@ export default function SalesPWAPage() {
       )}
 
       {/* Tabs Navigasi Mobile (2 Menu: Order & Riwayat) */}
-      <div className="grid grid-cols-2 p-1 mx-4 mt-3 bg-slate-200/80 dark:bg-slate-900 rounded-xl gap-1 text-xs font-bold">
+      <div className="grid grid-cols-2 p-1.5 mx-4 mt-3 bg-slate-200/80 dark:bg-slate-900 rounded-2xl gap-1 text-sm font-bold">
         <button
           onClick={() => setActiveTab('order')}
-          className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+          className={`py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
             activeTab === 'order'
               ? 'bg-emerald-600 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
@@ -784,22 +802,22 @@ export default function SalesPWAPage() {
 
         <button
           onClick={() => setActiveTab('history')}
-          className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+          className={`py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
             activeTab === 'history'
               ? 'bg-emerald-600 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>Riwayat Pesanan ({myOrders.length})</span>
+          <span>Riwayat ({myOrders.length})</span>
         </button>
       </div>
 
       {/* NOTIFIKASI SUKSES */}
       {successMsg && (
-        <div className="mx-4 mt-3 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs flex items-start gap-2 shadow-sm animate-in fade-in duration-200">
+        <div className="mx-4 mt-3 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs sm:text-sm flex items-start gap-2 shadow-sm animate-in fade-in duration-200">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
-          <span className="leading-relaxed font-medium">{successMsg}</span>
+          <span className="leading-relaxed font-semibold">{successMsg}</span>
         </div>
       )}
 
@@ -811,7 +829,7 @@ export default function SalesPWAPage() {
           {/* KARTU 1: PILIH TOKO PELANGGAN */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-2.5">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                 <StoreIcon className="w-4 h-4 text-emerald-600" />
                 1. Toko Pelanggan
               </h2>
@@ -819,7 +837,7 @@ export default function SalesPWAPage() {
                 <button
                   type="button"
                   onClick={() => setIsStoreModalOpen(true)}
-                  className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+                  className="text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 font-extrabold hover:underline"
                 >
                   Ganti Toko
                 </button>
@@ -830,7 +848,7 @@ export default function SalesPWAPage() {
               <button
                 type="button"
                 onClick={() => setIsStoreModalOpen(true)}
-                className="w-full py-3.5 px-4 rounded-xl border border-dashed border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 flex items-center justify-between text-xs font-bold hover:bg-emerald-50 transition-colors"
+                className="w-full py-4 px-4 rounded-2xl border-2 border-dashed border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 flex items-center justify-between text-sm font-extrabold hover:bg-emerald-50 transition-colors shadow-2xs"
               >
                 <span className="flex items-center gap-2">
                   <Search className="w-4 h-4 text-emerald-600" />
@@ -841,36 +859,36 @@ export default function SalesPWAPage() {
                 <ChevronDown className="w-4 h-4 text-emerald-600" />
               </button>
             ) : (
-              <div className="p-3.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 space-y-2">
+              <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 space-y-2.5">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-extrabold text-sm text-emerald-950 dark:text-emerald-200 leading-snug">
+                  <h3 className="font-extrabold text-base text-emerald-950 dark:text-emerald-200 leading-snug">
                     {selectedStore.name}
                   </h3>
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 font-extrabold whitespace-nowrap shrink-0">
+                  <span className="text-xs px-3 py-1 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 font-extrabold whitespace-nowrap shrink-0">
                     {selectedStore.zone_code}
                   </span>
                 </div>
 
                 {todayRouteZones.includes(selectedStore.zone_code) && (
                   <div>
-                    <span className="inline-block text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold whitespace-nowrap">
+                    <span className="inline-block text-xs px-3 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold whitespace-nowrap shadow-2xs">
                       ⭐ Rute Hari Ini
                     </span>
                   </div>
                 )}
 
-                <p className="text-xs text-slate-600 dark:text-slate-400">{selectedStore.address}</p>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">{selectedStore.address}</p>
 
-                <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
-                  <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold text-slate-700 dark:text-slate-300">
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-semibold">
+                  <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                     TOP: {selectedStore.top_days === 0 ? 'Tunai / COD (0-day)' : `${selectedStore.top_days} Hari`}
                   </span>
                   {selectedStore.is_locked ? (
-                    <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" /> Akun Terkunci (Order Tertahan)
+                    <span className="px-2.5 py-1 rounded-xl bg-rose-100 text-rose-800 font-bold flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Akun Terkunci (Order Tertahan)
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold">
+                    <span className="px-2.5 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold">
                       {selectedStore.credit_limit > 0
                         ? `Plafon: Rp ${Number(selectedStore.credit_limit).toLocaleString('id-ID')}`
                         : 'Khusus Tunai'}
@@ -884,24 +902,24 @@ export default function SalesPWAPage() {
           {/* KARTU 2: KATALOG PRODUK CHARM (TANPA JADWAL KIRIM) */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                 <ShoppingBag className="w-4 h-4 text-emerald-600" />
                 2. Katalog Produk Charm & Satuan
               </h2>
-              <span className="text-[11px] text-slate-400 font-medium">
+              <span className="text-xs text-slate-400 font-semibold">
                 {filteredProducts.length} Varian
               </span>
             </div>
 
             {/* Field Pencarian Produk */}
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="text"
                 value={searchProduct}
                 onChange={(e) => setSearchProduct(e.target.value)}
                 placeholder="Cari nama produk / kode SKU Charm..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                className="w-full pl-10 pr-4 py-2.5 sm:py-3 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
               />
             </div>
 
@@ -931,14 +949,14 @@ export default function SalesPWAPage() {
                         className="p-3.5 cursor-pointer bg-slate-50/70 dark:bg-slate-950/60 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 flex items-center justify-between gap-2.5 transition-colors"
                       >
                         <div className="flex-1 pr-1">
-                          <h4 className="text-xs font-extrabold text-slate-900 dark:text-slate-100 leading-snug">
+                          <h4 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-slate-100 leading-snug">
                             {prod.name}
                           </h4>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold font-mono">
+                          <div className="flex items-center gap-2.5 mt-0.5">
+                            <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold font-mono">
                               {prod.sku}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-semibold">
+                            <span className="text-xs text-slate-400 font-semibold">
                               Stok H-1: {prod.snapshot_stock_h1} PCS
                             </span>
                           </div>
@@ -946,12 +964,12 @@ export default function SalesPWAPage() {
 
                         <div className="flex items-center gap-2">
                           {totalUnitsInCart > 0 && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white shadow-2xs">
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-2xs">
                               {totalUnitsInCart} Dipilih
                             </span>
                           )}
 
-                          <div className="w-6 h-6 rounded-lg bg-slate-200/70 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                          <div className="w-7 h-7 rounded-lg bg-slate-200/70 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
                             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </div>
                         </div>
@@ -968,36 +986,36 @@ export default function SalesPWAPage() {
                             return (
                               <div
                                 key={unit.id}
-                                className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                                className={`p-3 rounded-xl border flex items-center justify-between gap-2 transition-all ${
                                   currentQty > 0
                                     ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/30'
                                     : 'border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20'
                                 }`}
                               >
                                 <div className="flex-1 pr-1">
-                                  <div className="font-extrabold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                  <div className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                                     <span>{unit.unit_name}</span>
-                                    <span className="text-[10px] font-normal text-slate-400">
+                                    <span className="text-xs font-normal text-slate-400">
                                       ({unit.conversion_qty} pcs)
                                     </span>
                                   </div>
-                                  <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 mt-0.5">
+                                  <div className="text-xs sm:text-sm font-extrabold text-emerald-700 dark:text-emerald-400 mt-0.5">
                                     Rp {price.toLocaleString('id-ID')}
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-2">
                                   {currentQty > 0 ? (
                                     <button
                                       type="button"
                                       onClick={() => handleSetProductQty(prod, unit, -currentQty)}
                                       title="Hapus satuan ini"
-                                      className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                      className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                                     >
-                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <Trash2 className="w-4 h-4" />
                                     </button>
                                   ) : (
-                                    <div className="w-7 h-7" />
+                                    <div className="w-8 h-8" />
                                   )}
 
                                   <div className="flex items-center border border-slate-300 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xs">
@@ -1005,21 +1023,21 @@ export default function SalesPWAPage() {
                                       type="button"
                                       onClick={() => handleSetProductQty(prod, unit, -1)}
                                       disabled={currentQty === 0}
-                                      className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-25 disabled:cursor-not-allowed transition-colors font-bold"
+                                      className="w-9 h-9 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-25 disabled:cursor-not-allowed transition-colors font-bold text-base"
                                     >
-                                      <Minus className="w-3.5 h-3.5" />
+                                      <Minus className="w-4 h-4" />
                                     </button>
 
-                                    <div className="w-8 text-center font-extrabold text-xs">
+                                    <div className="w-9 text-center font-extrabold text-sm sm:text-base">
                                       {currentQty}
                                     </div>
 
                                     <button
                                       type="button"
                                       onClick={() => handleSetProductQty(prod, unit, 1)}
-                                      className="w-8 h-8 flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors"
+                                      className="w-9 h-9 flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors text-base"
                                     >
-                                      <Plus className="w-3.5 h-3.5" />
+                                      <Plus className="w-4 h-4" />
                                     </button>
                                   </div>
                                 </div>
@@ -1106,14 +1124,14 @@ export default function SalesPWAPage() {
                   value={orderNotes}
                   onChange={(e) => setOrderNotes(e.target.value)}
                   placeholder="Catatan pesanan untuk kantor (opsional)..."
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none"
+                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none"
                 />
 
-                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900">
-                  <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900">
+                  <span className="text-sm font-bold text-emerald-900 dark:text-emerald-300">
                     Grand Total:
                   </span>
-                  <span className="text-base font-extrabold text-emerald-700 dark:text-emerald-400">
+                  <span className="text-lg font-extrabold text-emerald-700 dark:text-emerald-400">
                     Rp {cartTotal.toLocaleString('id-ID')}
                   </span>
                 </div>
@@ -1122,7 +1140,7 @@ export default function SalesPWAPage() {
                   type="button"
                   onClick={handleSubmitOrder}
                   disabled={submitting}
-                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm sm:text-base shadow-md shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 >
                   {submitting ? (
                     'Mengirim Pesanan...'
@@ -1197,11 +1215,11 @@ export default function SalesPWAPage() {
                     className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-2.5"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-xs text-emerald-600 font-mono">
+                      <span className="font-extrabold text-xs sm:text-sm text-emerald-600 font-mono">
                         {order.order_no}
                       </span>
                       <span
-                        className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
+                        className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full ${
                           order.status === 'APPROVED'
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                             : order.status === 'PENDING_PAYMENT'
@@ -1214,22 +1232,22 @@ export default function SalesPWAPage() {
                     </div>
 
                     <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      <div className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-slate-100">
                         {order.store?.name}
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         Tgl Order: {order.order_date || order.created_at?.slice(0, 10)}
                       </div>
                     </div>
 
                     {/* Ringkasan Item */}
-                    <div className="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80">
+                    <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80">
                       {(order.items || []).map((it: any) => (
                         <div key={it.id} className="flex justify-between py-0.5">
                           <span>
                             {it.product?.name || it.product_name} ({it.quantity} {it.unit_name})
                           </span>
-                          <span className="font-semibold">
+                          <span className="font-bold">
                             Rp {Number(it.total_price).toLocaleString('id-ID')}
                           </span>
                         </div>
@@ -1238,8 +1256,8 @@ export default function SalesPWAPage() {
 
                     <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
                       <div>
-                        <span className="text-[10px] text-slate-400 block">Total Pesanan:</span>
-                        <span className="font-extrabold text-sm text-slate-900 dark:text-slate-100">
+                        <span className="text-xs text-slate-400 block">Total Pesanan:</span>
+                        <span className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-slate-100">
                           Rp {Number(order.grand_total).toLocaleString('id-ID')}
                         </span>
                       </div>
@@ -1248,13 +1266,13 @@ export default function SalesPWAPage() {
                         <button
                           type="button"
                           onClick={() => handleOpenEditOrder(order)}
-                          className="h-8 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-slate-300 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                          className="h-8 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-slate-300 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
                         >
                           <Edit className="w-3.5 h-3.5" />
                           Edit Pesanan
                         </button>
                       ) : (
-                        <span className="text-[10px] text-slate-400 font-semibold italic">
+                        <span className="text-xs text-slate-400 font-semibold italic">
                           Sudah Diapprove (Terkunci)
                         </span>
                       )}
@@ -1410,14 +1428,14 @@ export default function SalesPWAPage() {
 
             {/* Input Search */}
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="text"
                 autoFocus
                 value={searchStore}
                 onChange={(e) => setSearchStore(e.target.value)}
                 placeholder="Ketik nama toko atau wilayah..."
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                className="w-full pl-10 pr-4 py-2.5 sm:py-3 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
               />
             </div>
 
@@ -1425,14 +1443,14 @@ export default function SalesPWAPage() {
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {filteredStores.length === 0 ? (
                 <div className="text-center py-8 space-y-2">
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm text-slate-400">
                     Tidak ada toko pada filter ini.
                   </p>
                   {storeRouteFilter === 'ROUTE' && (
                     <button
                       type="button"
                       onClick={() => setStoreRouteFilter('ALL')}
-                      className="text-xs font-bold text-emerald-600 hover:underline"
+                      className="text-xs sm:text-sm font-bold text-emerald-600 hover:underline"
                     >
                       Tampilkan Semua Toko ({stores.length})
                     </button>
@@ -1449,43 +1467,43 @@ export default function SalesPWAPage() {
                         setSelectedStore(store);
                         setIsStoreModalOpen(false);
                       }}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                      className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                         isTodayRouteStore
                           ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50/70'
                           : 'border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/50 hover:bg-slate-100'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="font-extrabold text-xs text-slate-900 dark:text-slate-100 leading-tight">
+                        <span className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-slate-100 leading-snug">
                           {store.name}
                         </span>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           {isTodayRouteStore && (
-                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold whitespace-nowrap">
+                            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold whitespace-nowrap shadow-2xs">
                               ⭐ Rute Hari Ini
                             </span>
                           )}
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 font-bold whitespace-nowrap">
+                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 font-bold whitespace-nowrap">
                             {store.zone_code}
                           </span>
                         </div>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-1">{store.address}</p>
-                      <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-slate-800/60 text-[11px]">
-                        <span className="text-slate-600 dark:text-slate-400 font-semibold">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{store.address}</p>
+                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800/60 text-xs font-semibold">
+                        <span className="text-slate-600 dark:text-slate-400">
                           TOP: {store.top_days === 0 ? 'Tunai (0-day)' : `${store.top_days} Hari`}
                         </span>
                         {store.is_locked ? (
                           <span className="text-rose-600 font-bold flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" /> Terkunci
+                            <AlertTriangle className="w-3.5 h-3.5" /> Terkunci
                           </span>
                         ) : store.current_debt > 0 ? (
-                          <span className="text-amber-600 font-semibold">
+                          <span className="text-amber-600 font-bold">
                             Piutang: Rp {Number(store.current_debt).toLocaleString('id-ID')}
                           </span>
                         ) : (
-                          <span className="text-emerald-600 font-semibold flex items-center gap-0.5">
-                            <Check className="w-3 h-3" /> Lancar
+                          <span className="text-emerald-600 font-bold flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" /> Lancar
                           </span>
                         )}
                       </div>

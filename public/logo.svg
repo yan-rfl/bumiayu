@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="115" fill="#059669" />
+  <g stroke="#ffffff" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Box Muatan Belakang -->
+    <path d="M96 340V136a24 24 0 0 1 24-24h184a24 24 0 0 1 24 24v204" />
+    <path d="M180 340h124" />
+    <path d="M96 340H80a16 16 0 0 1-16-16V220" />
+    <!-- Kabin Depan Truk -->
+    <path d="M328 196h56a24 24 0 0 1 18.7 9l55.3 69.1a24 24 0 0 1 6 15V324a16 16 0 0 1-16 16h-40" />
+    <path d="M328 260h116" />
+    <!-- Roda Truk -->
+    <circle cx="140" cy="340" r="40" fill="#059669" />
+    <circle cx="140" cy="340" r="16" fill="#ffffff" stroke="none" />
+    <circle cx="400" cy="340" r="40" fill="#059669" />
+    <circle cx="400" cy="340" r="16" fill="#ffffff" stroke="none" />
+  </g>
+</svg>
