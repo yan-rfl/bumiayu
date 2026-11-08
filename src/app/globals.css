@@ -83,3 +83,19 @@ select::-ms-expand {
   caret-color: #1d241e !important;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* Dark Mode: Text dan ikon yang sebelumnya berwarna hijau tua (#334F38 / emerald-600 / 700 / 800)
+   diubah menjadi nada hangat turunan lebih gelap dari #DDD6B9 (#C8BE9C / Medium Warm Sand)
+   sehingga memiliki kontras tinggi (8.0:1) dan sangat nyaman dibaca di atas background #121813 */
+.dark .text-emerald-600,
+.dark .text-emerald-700,
+.dark .text-emerald-800,
+.dark .text-emerald-900,
+.dark .text-emerald-950,
+.dark .text-emerald-400 {
+  color: #c8be9c;
+}
+
+.dark .text-emerald-300 {
+  color: #ddd6b9;
+}
