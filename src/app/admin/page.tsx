@@ -1161,7 +1161,7 @@ export default function AdminDashboardPage() {
                   <>
                     <button
                       onClick={handleApproveBatch}
-                      className="h-8 px-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all"
+                      className="h-8 px-3.5 rounded-xl bg-green-600 hover:bg-green-500 text-white font-extrabold text-xs shadow-sm shadow-green-600/30 flex items-center gap-1.5 transition-all active:scale-95"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Approve Terpilih ({selectedOrderIds.length})
@@ -1170,9 +1170,9 @@ export default function AdminDashboardPage() {
                     {selectedApprovedCount > 0 && (
                       <button
                         onClick={handleBatchPrint}
-                        className="h-8 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all"
+                        className="h-8 px-3.5 rounded-xl bg-slate-900 hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs shadow-xs border border-slate-800 dark:border-slate-600 flex items-center gap-1.5 transition-all active:scale-95"
                       >
-                        <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                        <Printer className="w-3.5 h-3.5 text-amber-400 dark:text-amber-300" />
                         Cetak Batch 3-Ply ({selectedApprovedCount})
                       </button>
                     )}
@@ -1293,12 +1293,12 @@ export default function AdminDashboardPage() {
                             </td>
                             <td className="py-3 px-4 text-center align-middle">
                               <span
-                                className={`inline-block px-2.5 py-1 rounded-full font-bold text-[10px] ${
+                                className={`inline-block px-2.5 py-1 rounded-full font-extrabold text-[10px] tracking-wide uppercase border ${
                                   order.status === 'APPROVED'
-                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                    ? 'bg-green-100 text-green-800 border-green-300/80 dark:bg-green-950/80 dark:text-green-300 dark:border-green-700/60'
                                     : order.status === 'PENDING_PAYMENT'
-                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                    ? 'bg-rose-100 text-rose-800 border-rose-300/80 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-700/60'
+                                    : 'bg-amber-100 text-amber-900 border-amber-300/80 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700/60'
                                 }`}
                               >
                                 {order.status}
@@ -1316,12 +1316,12 @@ export default function AdminDashboardPage() {
                                   <Edit className="w-3.5 h-3.5" />
                                 </button>
 
-                                {/* Tombol Approve (Ukuran w-28 h-8) */}
+                                {/* Tombol Approve (Ukuran w-28 h-8) - Brighter Vibrant Green */}
                                 {order.status === 'SUBMITTED' && (
                                   <button
                                     onClick={() => handleApproveOrder(order.id)}
                                     title="Approve & Potong Stok Fisik"
-                                    className="w-28 h-8 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-2xs flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                                    className="w-28 h-8 rounded-xl bg-green-600 hover:bg-green-500 text-white font-extrabold text-[11px] shadow-sm shadow-green-600/30 flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95"
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                     Approve
@@ -1344,9 +1344,9 @@ export default function AdminDashboardPage() {
                                   <button
                                     onClick={() => setPrintingOrdersList([order])}
                                     title="Cetak Faktur 3-Ply Continuous Form"
-                                    className="w-28 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-[11px] shadow-2xs flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                                    className="w-28 h-8 rounded-xl bg-slate-900 hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-[11px] shadow-2xs border border-slate-800 dark:border-slate-600 flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95"
                                   >
-                                    <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                                    <Printer className="w-3.5 h-3.5 text-amber-400 dark:text-amber-300" />
                                     Cetak 3-Ply
                                   </button>
                                 )}

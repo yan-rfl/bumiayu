@@ -1219,12 +1219,12 @@ export default function SalesPWAPage() {
                         {order.order_no}
                       </span>
                       <span
-                        className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full ${
+                        className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
                           order.status === 'APPROVED'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            ? 'bg-green-100 text-green-800 border-green-300/80 dark:bg-green-950/80 dark:text-green-300 dark:border-green-700/60'
                             : order.status === 'PENDING_PAYMENT'
-                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            ? 'bg-rose-100 text-rose-800 border-rose-300/80 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-700/60'
+                            : 'bg-amber-100 text-amber-900 border-amber-300/80 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700/60'
                         }`}
                       >
                         {order.status}
