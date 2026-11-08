@@ -1,15 +1,50 @@
 @import "tailwindcss";
 
+@theme {
+  --color-emerald-50: #f6f8f5;
+  --color-emerald-100: #ddd6b9;
+  --color-emerald-200: #c8c09e;
+  --color-emerald-300: #9cb09d;
+  --color-emerald-400: #638a6b;
+  --color-emerald-500: #3e5f44;
+  --color-emerald-600: #334f38;
+  --color-emerald-700: #283e2d;
+  --color-emerald-800: #1f3023;
+  --color-emerald-900: #17231a;
+  --color-emerald-950: #101912;
+
+  --color-teal-700: #283e2d;
+  --color-teal-800: #1f3023;
+
+  --color-slate-50: #faf8f0;
+  --color-slate-100: #ede8d5;
+  --color-slate-200: #ddd6b9;
+  --color-slate-300: #c2bba0;
+  --color-slate-400: #98a597;
+  --color-slate-500: #6a7969;
+  --color-slate-600: #495748;
+  --color-slate-700: #344438;
+  --color-slate-800: #243027;
+  --color-slate-900: #1a221c;
+  --color-slate-950: #121813;
+
+  --color-forest-sage: #3e5f44;
+  --color-parchment: #ddd6b9;
+  --color-warm-sand: #c8c09e;
+  --color-pine-night: #121813;
+  --color-cream-linen: #faf9f5;
+}
+
 @variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
+  --background: #faf9f5;
+  --foreground: #1d241e;
 }
 
 .dark {
-  --background: #020617;
-  --foreground: #f8fafc;
+  --background: #121813;
+  --foreground: #ede8d5;
 }
 
 body {
@@ -33,9 +68,9 @@ select::-ms-expand {
 .dark input:-webkit-autofill:hover,
 .dark input:-webkit-autofill:focus,
 .dark input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px #020617 inset !important;
-  -webkit-text-fill-color: #f8fafc !important;
-  caret-color: #f8fafc !important;
+  -webkit-box-shadow: 0 0 0 1000px #121813 inset !important;
+  -webkit-text-fill-color: #ede8d5 !important;
+  caret-color: #ede8d5 !important;
   transition: background-color 5000s ease-in-out 0s;
 }
 
@@ -44,7 +79,7 @@ select::-ms-expand {
 :root:not(.dark) input:-webkit-autofill:focus,
 :root:not(.dark) input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
-  -webkit-text-fill-color: #0f172a !important;
-  caret-color: #0f172a !important;
+  -webkit-text-fill-color: #1d241e !important;
+  caret-color: #1d241e !important;
   transition: background-color 5000s ease-in-out 0s;
 }
