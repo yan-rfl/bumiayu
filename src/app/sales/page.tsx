@@ -324,11 +324,8 @@ export default function SalesPWAPage() {
         await offlineDB.products.clear();
         await offlineDB.products.bulkAdd(jsonProds.products);
 
-        const initialExpanded: Record<string, boolean> = {};
-        jsonProds.products.forEach((p: ProductItem, idx: number) => {
-          initialExpanded[p.id] = idx === 0;
-        });
-        setExpandedProductIds(initialExpanded);
+        // Default: semua accordion produk tertutup saat pertama kali buka app / refresh
+        setExpandedProductIds({});
       } else {
         const cachedProds = await offlineDB.products.toArray();
         setProducts(cachedProds as any);
@@ -504,6 +501,7 @@ export default function SalesPWAPage() {
       }
 
       setCart([]);
+      setExpandedProductIds({});
       setSelectedStore(null);
       setOrderNotes('');
       if (salesUser) loadMyOrders(salesUser.id);
