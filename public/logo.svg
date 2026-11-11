@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <rect width="512" height="512" rx="115" fill="#3e5f44" />
-  <g stroke="#ddd6b9" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(119.24, 127.04) scale(0.52)" stroke="#ddd6b9" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
     <!-- Box Muatan Belakang -->
     <path d="M96 340V136a24 24 0 0 1 24-24h184a24 24 0 0 1 24 24v204" />
     <path d="M180 340h124" />
@@ -9,9 +9,9 @@
     <path d="M328 196h56a24 24 0 0 1 18.7 9l55.3 69.1a24 24 0 0 1 6 15V324a16 16 0 0 1-16 16h-40" />
     <path d="M328 260h116" />
     <!-- Roda Truk -->
-    <circle cx="140" cy="340" r="40" fill="#3e5f44" />
+    <circle cx="140" cy="340" r="40" fill="#121813" />
     <circle cx="140" cy="340" r="16" fill="#ddd6b9" stroke="none" />
-    <circle cx="400" cy="340" r="40" fill="#3e5f44" />
+    <circle cx="400" cy="340" r="40" fill="#121813" />
     <circle cx="400" cy="340" r="16" fill="#ddd6b9" stroke="none" />
   </g>
 </svg>

@@ -207,7 +207,7 @@ export default function LoginPage() {
       {/* Header Bersih & Adaptif Sistem */}
       <header className="px-6 py-5 flex items-center justify-between border-b border-emerald-200/70 bg-white/70 dark:border-emerald-900/40 dark:bg-slate-950/60 backdrop-blur-md transition-colors duration-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-bold">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-[#ddd6b9] font-bold">
             <Truck className="w-5 h-5" />
           </div>
           <div>

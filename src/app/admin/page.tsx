@@ -949,7 +949,7 @@ export default function AdminDashboardPage() {
       {/* Top Header Admin */}
       <header className="sticky top-0 z-30 px-6 py-3.5 bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 backdrop-blur-md flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold shadow-md shadow-emerald-600/20">
+          <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-[#ddd6b9] font-bold shadow-md shadow-emerald-600/20">
             <Truck className="w-5 h-5" />
           </div>
           <div>

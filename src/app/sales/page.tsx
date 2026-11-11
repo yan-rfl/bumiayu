@@ -698,7 +698,7 @@ export default function SalesPWAPage() {
       {/* HEADER SALES */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center text-[#ddd6b9] shadow-sm shrink-0">
             <Truck className="w-6 h-6" />
           </div>
           <div>
