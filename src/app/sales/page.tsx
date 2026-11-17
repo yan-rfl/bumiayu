@@ -696,7 +696,7 @@ export default function SalesPWAPage() {
   }, [stores]);
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 pb-20">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 pb-28">
       {/* HEADER SALES */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-3">
@@ -827,7 +827,7 @@ export default function SalesPWAPage() {
       {/* TAB 1: INPUT ORDER                                                  */}
       {/* ==================================================================== */}
       {activeTab === 'order' && (
-        <div className="px-4 py-3 space-y-4 max-w-lg mx-auto">
+        <div className="px-3.5 sm:px-4 py-3 space-y-4 w-full max-w-2xl mx-auto">
           {/* KARTU 1: PILIH TOKO PELANGGAN */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-2.5">
             <div className="flex items-center justify-between">
@@ -1055,27 +1055,29 @@ export default function SalesPWAPage() {
             )}
           </div>
 
-          {/* KARTU RINGKASAN BAWAH / STEP 1: TOMBOL SELESAIKAN PESANAN */}
+          {/* DOCKED BOTTOM BAR / STEP 1: TOMBOL SELESAIKAN PESANAN (MEMENUHI SELURUH SCREEN BAWAH) */}
           {cart.length > 0 && (
-            <div className="sticky bottom-16 sm:bottom-4 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-emerald-500/50 rounded-2xl p-4 shadow-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2">
-              <div className="min-w-0">
-                <div className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{totalItemCount} Item ({cart.length} macam)</span>
+            <div className="fixed bottom-0 left-0 right-0 z-30 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-emerald-500/50 shadow-[0_-6px_20px_rgba(0,0,0,0.2)] px-4 py-3 sm:py-3.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-3">
+              <div className="max-w-2xl mx-auto w-full flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{totalItemCount} Item ({cart.length} macam)</span>
+                  </div>
+                  <div className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-400 truncate">
+                    Rp {cartTotal.toLocaleString('id-ID')}
+                  </div>
                 </div>
-                <div className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-400 truncate">
-                  Rp {cartTotal.toLocaleString('id-ID')}
-                </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => setIsReviewOrderModalOpen(true)}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/30 flex items-center gap-2 transition-all shrink-0 cursor-pointer"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Selesaikan Pesanan
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIsReviewOrderModalOpen(true)}
+                  className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/30 flex items-center gap-2 transition-all shrink-0 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Selesaikan Pesanan
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1237,7 +1239,7 @@ export default function SalesPWAPage() {
       {/* TAB 2: RIWAYAT PESANAN SALES (MAKSIMAL H-7 + FITUR EDIT PESANAN)      */}
       {/* ==================================================================== */}
       {activeTab === 'history' && (
-        <div className="px-4 py-3 space-y-3 max-w-lg mx-auto">
+        <div className="px-3.5 sm:px-4 py-3 space-y-3.5 w-full max-w-2xl mx-auto">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2.5 dark:border-slate-800">
             <div>
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">

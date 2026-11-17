@@ -39,6 +39,7 @@ import {
   Receipt,
   ShoppingCart,
   UserPlus,
+  Settings,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import ContinuousFormInvoice from '@/components/ContinuousFormInvoice';
@@ -50,7 +51,7 @@ import { ToastContainer, CustomModalDialog, ToastItem, ModalDialogConfig } from 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [adminUser, setAdminUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'review' | 'recap' | 'routes' | 'settlement' | 'finance' | 'inventory' | 'audit'>('review');
+  const [activeTab, setActiveTab] = useState<'review' | 'recap' | 'routes' | 'settlement' | 'finance' | 'inventory' | 'audit' | 'settings'>('review');
 
   // Toast & Custom Modal Dialog State
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -261,6 +262,37 @@ export default function AdminDashboardPage() {
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [savingEditProduct, setSavingEditProduct] = useState(false);
 
+  // State Manajemen Pengguna & Pengaturan (Settings)
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [adminProfileForm, setAdminProfileForm] = useState({
+    name: '',
+    username: '',
+    password: '',
+  });
+  const [savingAdminProfile, setSavingAdminProfile] = useState(false);
+
+  // Modal Tambah Sales Baru
+  const [isAddSalesModalOpen, setIsAddSalesModalOpen] = useState(false);
+  const [addSalesForm, setAddSalesForm] = useState({
+    name: '',
+    username: '',
+    password: '',
+    phone: '',
+  });
+  const [savingNewSales, setSavingNewSales] = useState(false);
+
+  // Modal Edit Sales
+  const [editingSalesUser, setEditingSalesUser] = useState<any | null>(null);
+  const [editSalesForm, setEditSalesForm] = useState({
+    name: '',
+    username: '',
+    password: '',
+    phone: '',
+    is_active: true,
+  });
+  const [savingEditSales, setSavingEditSales] = useState(false);
+
   // Cek Auth Session
   useEffect(() => {
     async function init() {
@@ -297,6 +329,7 @@ export default function AdminDashboardPage() {
       await loadInventoryAndAudit();
       await loadOrders();
       await loadStores();
+      await loadUsers();
     }
     init();
   }, [router]);
@@ -312,6 +345,8 @@ export default function AdminDashboardPage() {
     editingProduct ||
     selectedInvoiceForSettlement ||
     isAddExpenseModalOpen ||
+    isAddSalesModalOpen ||
+    editingSalesUser ||
     modalDialog?.isOpen
   );
 
@@ -328,6 +363,170 @@ export default function AdminDashboardPage() {
       document.body.style.touchAction = '';
     };
   }, [isAnyModalOpen]);
+
+  // Load Pengguna untuk Pengaturan
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch('/api/admin/users');
+      const data = await res.json();
+      if (res.ok && data.users) {
+        setUsersList(data.users);
+        const currentAdmin = data.users.find((u: any) => u.id === adminUser?.id || u.role === 'owner');
+        if (currentAdmin) {
+          setAdminProfileForm((prev) => ({
+            ...prev,
+            name: currentAdmin.full_name || '',
+            username: currentAdmin.username || '',
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load users:', err);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleSaveAdminProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminUser?.id) {
+      showToast('Sesi login admin tidak ditemukan.', 'error');
+      return;
+    }
+    if (!adminProfileForm.name.trim() || !adminProfileForm.username.trim()) {
+      showToast('Nama Lengkap dan Username admin wajib diisi.', 'error');
+      return;
+    }
+    if (adminProfileForm.password && adminProfileForm.password.trim().length < 6) {
+      showToast('Password baru minimal 6 karakter.', 'error');
+      return;
+    }
+    setSavingAdminProfile(true);
+    try {
+      const res = await fetch(`/api/admin/users/${adminUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: adminProfileForm.name.trim(),
+          username: adminProfileForm.username.trim(),
+          password: adminProfileForm.password.trim() || undefined,
+          admin_id: adminUser.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Gagal memperbarui profil admin.', 'error');
+        return;
+      }
+      showToast('Profil admin berhasil diperbarui!', 'success');
+      setAdminProfileForm((prev) => ({ ...prev, password: '' }));
+      if (adminUser) {
+        const updatedUser = {
+          ...adminUser,
+          user_metadata: {
+            ...adminUser.user_metadata,
+            full_name: data.user.full_name,
+            username: data.user.username,
+          },
+        };
+        setAdminUser(updatedUser);
+        try {
+          localStorage.setItem('bumiayu_auth_user', JSON.stringify(updatedUser));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      await loadUsers();
+    } catch (err) {
+      console.error(err);
+      showToast('Terjadi kesalahan saat menyimpan profil admin.', 'error');
+    } finally {
+      setSavingAdminProfile(false);
+    }
+  };
+
+  const handleCreateSales = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addSalesForm.name.trim() || !addSalesForm.username.trim() || !addSalesForm.password.trim()) {
+      showToast('Nama Lengkap, Username, dan Password wajib diisi.', 'error');
+      return;
+    }
+    if (addSalesForm.password.length < 6) {
+      showToast('Password minimal 6 karakter.', 'error');
+      return;
+    }
+    setSavingNewSales(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: addSalesForm.name.trim(),
+          username: addSalesForm.username.trim(),
+          password: addSalesForm.password.trim(),
+          phone: addSalesForm.phone.trim() || undefined,
+          role: 'sales',
+          admin_id: adminUser?.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Gagal menambahkan akun sales.', 'error');
+        return;
+      }
+      showToast(`Akun sales @${data.user.username} berhasil didaftarkan!`, 'success');
+      setIsAddSalesModalOpen(false);
+      setAddSalesForm({ name: '', username: '', password: '', phone: '' });
+      await loadUsers();
+    } catch (err) {
+      console.error(err);
+      showToast('Terjadi kesalahan saat mendaftarkan akun sales.', 'error');
+    } finally {
+      setSavingNewSales(false);
+    }
+  };
+
+  const handleUpdateSales = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSalesUser) return;
+    if (!editSalesForm.name.trim() || !editSalesForm.username.trim()) {
+      showToast('Nama Lengkap dan Username sales wajib diisi.', 'error');
+      return;
+    }
+    if (editSalesForm.password && editSalesForm.password.trim().length < 6) {
+      showToast('Password baru minimal 6 karakter.', 'error');
+      return;
+    }
+    setSavingEditSales(true);
+    try {
+      const res = await fetch(`/api/admin/users/${editingSalesUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editSalesForm.name.trim(),
+          username: editSalesForm.username.trim(),
+          password: editSalesForm.password.trim() || undefined,
+          phone: editSalesForm.phone.trim() || undefined,
+          is_active: editSalesForm.is_active,
+          admin_id: adminUser?.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Gagal memperbarui akun sales.', 'error');
+        return;
+      }
+      showToast(`Akun sales @${data.user.username} berhasil diperbarui!`, 'success');
+      setEditingSalesUser(null);
+      await loadUsers();
+    } catch (err) {
+      console.error(err);
+      showToast('Terjadi kesalahan saat menyimpan perubahan akun sales.', 'error');
+    } finally {
+      setSavingEditSales(false);
+    }
+  };
 
   // Load Toko Master untuk Pembelian
   const loadStores = async () => {
@@ -1160,23 +1359,23 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-16 font-sans">
       {/* Top Header Admin */}
-      <header className="sticky top-0 z-30 px-6 py-3.5 bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 backdrop-blur-md flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-[#ddd6b9] font-bold shadow-md shadow-emerald-600/20">
-            <Truck className="w-5 h-5" />
+      <header className="sticky top-0 z-40 px-3 sm:px-6 py-2.5 sm:py-3.5 bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 backdrop-blur-md flex items-center justify-between">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-[#ddd6b9] font-bold shadow-md shadow-emerald-600/20 shrink-0">
+            <Truck className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
-            <h1 className="text-base font-extrabold tracking-tight">BumiAyu | Panel Owner</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="text-sm sm:text-base font-extrabold tracking-tight">BumiAyu | Panel Owner</h1>
+            <p className="text-[11px] sm:text-xs text-slate-500">
               Admin: <span className="font-semibold text-emerald-600">{adminUser?.user_metadata?.full_name || 'Owner'}</span>
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
           <button
             onClick={loadOrders}
-            className="h-8 px-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-all"
+            className="h-8 px-2.5 sm:px-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
             title="Muat Ulang Data"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -1185,7 +1384,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={handleLogout}
-            className="h-8 px-3 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs font-semibold flex items-center gap-1.5 transition-all"
+            className="h-8 px-2.5 sm:px-3 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
             title="Keluar"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -1195,123 +1394,137 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* STATS CARDS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-            <p className="text-xs font-semibold text-slate-500">Perlu Direview</p>
-            <p className="text-2xl font-extrabold text-amber-500 mt-1">{countPending}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Status SUBMITTED</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4">
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Perlu Direview</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-amber-500 mt-1">{countPending}</p>
+            <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Status SUBMITTED</p>
           </div>
-          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-            <p className="text-xs font-semibold text-slate-500">Ditahan (Kredit Lock)</p>
-            <p className="text-2xl font-extrabold text-rose-500 mt-1">{countHold}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Toko over limit / jatuh tempo</p>
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Ditahan (Kredit Lock)</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-rose-500 mt-1">{countHold}</p>
+            <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Toko over limit / jatuh tempo</p>
           </div>
-          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-            <p className="text-xs font-semibold text-slate-500">Siap Cetak / Kirim</p>
-            <p className="text-2xl font-extrabold text-emerald-600 mt-1">{countApproved}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Faktur terbit & stok terpotong</p>
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Siap Cetak / Kirim</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-1">{countApproved}</p>
+            <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Faktur terbit & stok terpotong</p>
           </div>
-          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-            <p className="text-xs font-semibold text-slate-500">Total Omset Disetujui</p>
-            <p className="text-xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Total Omset Disetujui</p>
+            <p className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-slate-100 mt-1 truncate">
               Rp {totalOmset.toLocaleString('id-ID')}
             </p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Faktur penjualan aktif</p>
+            <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Faktur penjualan aktif</p>
           </div>
         </div>
 
-        {/* TABS NAVIGATION */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 gap-5 overflow-x-auto pb-1">
+        {/* TABS NAVIGATION (Memenuhi Seluruh Width dengan Space Between / Flex-1) */}
+        <div className="w-full flex items-center justify-between border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-1 gap-1 sm:gap-2 no-scrollbar">
           <button
             onClick={() => setActiveTab('review')}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 whitespace-nowrap transition-all ${
+            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center ${
               activeTab === 'review'
                 ? 'border-emerald-600 text-emerald-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            <FileText className="w-4 h-4" />
-            Review & Faktur
+            <FileText className="w-4 h-4 shrink-0" />
+            <span>Review & Faktur</span>
           </button>
           <button
             onClick={() => {
               setActiveTab('recap');
               loadRecap(recapDate);
             }}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 whitespace-nowrap transition-all ${
+            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center ${
               activeTab === 'recap'
                 ? 'border-emerald-600 text-emerald-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            <Layers className="w-4 h-4" />
-            Rekap 24 Jam
+            <Layers className="w-4 h-4 shrink-0" />
+            <span>Rekap 24 Jam</span>
           </button>
           <button
             onClick={() => {
               setActiveTab('routes');
               loadRoutes();
             }}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 whitespace-nowrap transition-all ${
+            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center ${
               activeTab === 'routes'
                 ? 'border-emerald-600 text-emerald-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            <MapPin className="w-4 h-4" />
-            Jadwal Rute Mingguan
+            <MapPin className="w-4 h-4 shrink-0" />
+            <span>Jadwal Rute Mingguan</span>
           </button>
           <button
             onClick={() => {
               setActiveTab('settlement');
               loadSettlement();
             }}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 whitespace-nowrap transition-all ${
+            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center ${
               activeTab === 'settlement'
                 ? 'border-emerald-600 text-emerald-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            <CreditCard className="w-4 h-4" />
-            Pelunasan & Piutang
+            <CreditCard className="w-4 h-4 shrink-0" />
+            <span>Pelunasan & Piutang</span>
           </button>
           <button
             onClick={() => {
               setActiveTab('finance');
               loadExpenses();
             }}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 whitespace-nowrap transition-all ${
+            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center ${
               activeTab === 'finance'
                 ? 'border-emerald-600 text-emerald-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            <TrendingUp className="w-4 h-4" />
-            Beban & Laba/Rugi (P&L)
+            <TrendingUp className="w-4 h-4 shrink-0" />
+            <span>Beban & Laba/Rugi (P&L)</span>
           </button>
           <button
             onClick={() => setActiveTab('inventory')}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 whitespace-nowrap transition-all ${
+            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center ${
               activeTab === 'inventory'
                 ? 'border-emerald-600 text-emerald-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            <Boxes className="w-4 h-4" />
-            Stok & Produk
+            <Boxes className="w-4 h-4 shrink-0" />
+            <span>Stok & Produk</span>
           </button>
           <button
             onClick={() => setActiveTab('audit')}
-            className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 whitespace-nowrap transition-all ${
+            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center ${
               activeTab === 'audit'
                 ? 'border-emerald-600 text-emerald-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            <ShieldCheck className="w-4 h-4" />
-            Audit Logs
+            <ShieldCheck className="w-4 h-4 shrink-0" />
+            <span>Audit Logs</span>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('settings');
+              loadUsers();
+            }}
+            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center ${
+              activeTab === 'settings'
+                ? 'border-emerald-600 text-emerald-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Settings className="w-4 h-4 shrink-0" />
+            <span>Pengaturan</span>
           </button>
         </div>
 
@@ -2459,6 +2672,202 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         )}
+
+        {/* TAB 8: PENGATURAN SISTEM & PENGGUNA */}
+        {activeTab === 'settings' && (
+          <div className="space-y-5">
+            {/* 1. PENGATURAN PROFIL ADMIN */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
+              <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 bg-slate-50/50 dark:bg-slate-950/30">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-slate-800 dark:text-slate-100">
+                    Pengaturan Profil Admin / Owner
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Perbarui nama lengkap, username login, atau ganti kata sandi akun administrator.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveAdminProfile} className="p-4 sm:p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Nama Lengkap Admin <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={adminProfileForm.name}
+                      onChange={(e) => setAdminProfileForm({ ...adminProfileForm, name: e.target.value })}
+                      placeholder="cth: Owner BumiAyu"
+                      className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Username Login <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={adminProfileForm.username}
+                      onChange={(e) => setAdminProfileForm({ ...adminProfileForm, username: e.target.value })}
+                      placeholder="cth: admin"
+                      className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-semibold"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Username dipakai untuk login ke sistem.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Password Baru (Opsional)
+                    </label>
+                    <input
+                      type="password"
+                      value={adminProfileForm.password}
+                      onChange={(e) => setAdminProfileForm({ ...adminProfileForm, password: e.target.value })}
+                      placeholder="Kosongkan jika tidak ingin diubah"
+                      className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Minimal 6 karakter jika ingin mengganti.</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingAdminProfile}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{savingAdminProfile ? 'Menyimpan...' : 'Simpan Profil Admin'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* 2. MANAJEMEN PENGGUNA SALES LAPANGAN */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
+              <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-950/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                    <UserPlus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm sm:text-base text-slate-800 dark:text-slate-100">
+                      Manajemen Akun Sales Lapangan
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Kelola daftar username, nama, dan kata sandi tim sales untuk akses aplikasi lapangan.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddSalesForm({ name: '', username: '', password: '', phone: '' });
+                    setIsAddSalesModalOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  + Tambah Sales Baru
+                </button>
+              </div>
+
+              {/* Tampilan Desktop Table & Mobile Card */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                      <th className="py-3 px-4">Nama Lengkap</th>
+                      <th className="py-3 px-4">Username Login</th>
+                      <th className="py-3 px-4">No. Telp / WhatsApp</th>
+                      <th className="py-3 px-4 text-center">Status Akun</th>
+                      <th className="py-3 px-4 text-center w-28">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {loadingUsers ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-slate-500">
+                          Memuat data pengguna sales...
+                        </td>
+                      </tr>
+                    ) : (
+                      (() => {
+                        const salesOnly = usersList.filter((u) => u.role === 'sales');
+                        if (salesOnly.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="p-8 text-center text-slate-500">
+                                Belum ada akun sales. Klik tombol &ldquo;+ Tambah Sales Baru&rdquo; untuk mendaftarkan.
+                              </td>
+                            </tr>
+                          );
+                        }
+                        return salesOnly.map((sales) => (
+                          <tr key={sales.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                            <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-black flex items-center justify-center shrink-0">
+                                  {sales.full_name ? sales.full_name.charAt(0).toUpperCase() : 'S'}
+                                </div>
+                                <span>{sales.full_name}</span>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 dark:text-slate-300">
+                              @{sales.username}
+                            </td>
+                            <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
+                              {sales.phone || '-'}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-extrabold border ${
+                                  sales.is_active !== false
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800'
+                                    : 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800'
+                                }`}
+                              >
+                                {sales.is_active !== false ? 'Aktif' : 'Nonaktif'}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingSalesUser(sales);
+                                  setEditSalesForm({
+                                    name: sales.full_name || '',
+                                    username: sales.username || '',
+                                    password: '',
+                                    phone: sales.phone || '',
+                                    is_active: sales.is_active !== false,
+                                  });
+                                }}
+                                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1 mx-auto transition-colors cursor-pointer"
+                              >
+                                <Edit className="w-3.5 h-3.5 text-emerald-600" />
+                                Edit
+                              </button>
+                            </td>
+                          </tr>
+                        ));
+                      })()
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL EDIT ITEM ORDER MODEL TABEL (SESUAI PERMINTAAN USER) */}
@@ -3503,6 +3912,232 @@ export default function AdminDashboardPage() {
                   className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs disabled:opacity-50"
                 >
                   {savingNewExpense ? 'Menyimpan...' : 'Simpan Pengeluaran'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TAMBAH SALES BARU */}
+      {isAddSalesModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+          <div className="my-auto w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-800 dark:text-slate-100">
+                    Tambah Akun Sales Lapangan
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Akun ini dapat langsung login ke aplikasi PWA sales.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddSalesModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSales} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nama Lengkap Sales <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={addSalesForm.name}
+                  onChange={(e) => setAddSalesForm({ ...addSalesForm, name: e.target.value })}
+                  placeholder="cth: Budi Santoso"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Username Login <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={addSalesForm.username}
+                  onChange={(e) => setAddSalesForm({ ...addSalesForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '') })}
+                  placeholder="cth: budi_sales"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-semibold"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Huruf kecil, angka, titik, atau underscore tanpa spasi.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Password <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={addSalesForm.password}
+                  onChange={(e) => setAddSalesForm({ ...addSalesForm, password: e.target.value })}
+                  placeholder="Minimal 6 karakter"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  No. Telepon / WhatsApp (Opsional)
+                </label>
+                <input
+                  type="tel"
+                  value={addSalesForm.phone}
+                  onChange={(e) => setAddSalesForm({ ...addSalesForm, phone: e.target.value })}
+                  placeholder="cth: 081234567890"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              {/* Footer Aksi Modal (Tombol Batal Warna Merah) */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddSalesModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-xs transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingNewSales}
+                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  {savingNewSales ? 'Menyimpan...' : 'Simpan Akun Sales'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT SALES */}
+      {editingSalesUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+          <div className="my-auto w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Edit className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-800 dark:text-slate-100">
+                    Edit Akun Sales: @{editingSalesUser.username}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Perbarui identitas, username, password, atau status akun sales.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingSalesUser(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSales} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nama Lengkap Sales <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editSalesForm.name}
+                  onChange={(e) => setEditSalesForm({ ...editSalesForm, name: e.target.value })}
+                  placeholder="cth: Budi Santoso"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Username Login <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editSalesForm.username}
+                  onChange={(e) => setEditSalesForm({ ...editSalesForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '') })}
+                  placeholder="cth: budi_sales"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Password Baru (Opsional)
+                </label>
+                <input
+                  type="password"
+                  value={editSalesForm.password}
+                  onChange={(e) => setEditSalesForm({ ...editSalesForm, password: e.target.value })}
+                  placeholder="Kosongkan jika tidak ingin diubah"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Minimal 6 karakter jika ingin mengganti kata sandi.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  No. Telepon / WhatsApp (Opsional)
+                </label>
+                <input
+                  type="tel"
+                  value={editSalesForm.phone}
+                  onChange={(e) => setEditSalesForm({ ...editSalesForm, phone: e.target.value })}
+                  placeholder="cth: 081234567890"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Status Akun
+                </label>
+                <select
+                  value={editSalesForm.is_active ? 'true' : 'false'}
+                  onChange={(e) => setEditSalesForm({ ...editSalesForm, is_active: e.target.value === 'true' })}
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-semibold cursor-pointer"
+                >
+                  <option value="true">Aktif (Bisa Login & Input Order)</option>
+                  <option value="false">Nonaktif (Akses Dibekukan)</option>
+                </select>
+              </div>
+
+              {/* Footer Aksi Modal (Tombol Batal Warna Merah) */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingSalesUser(null)}
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-xs transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditSales}
+                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  {savingEditSales ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>
               </div>
             </form>
