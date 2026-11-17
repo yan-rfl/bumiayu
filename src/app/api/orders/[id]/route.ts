@@ -48,11 +48,16 @@ export async function PATCH(
         newGrandTotal += Number(item.total_price);
 
         if (item.id) {
-          // Update item pesanan lama
+          // Update item pesanan lama (mendukung ganti produk, satuan, qty, dan harga)
           await supabase
             .from('sales_order_items')
             .update({
+              product_id: item.product_id,
+              product_unit_id: item.product_unit_id,
+              unit_name: item.unit_name,
               quantity: item.quantity,
+              conversion_qty: item.conversion_qty || 1,
+              unit_price: item.unit_price,
               total_price: item.total_price,
             })
             .eq('id', item.id);

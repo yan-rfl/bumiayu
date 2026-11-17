@@ -155,7 +155,7 @@ export function CustomModalDialog({
             <button
               type="button"
               onClick={handleCancel}
-              className="w-1/2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              className="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-xs transition-colors"
             >
               {config.cancelText || 'Batal'}
             </button>

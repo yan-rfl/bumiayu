@@ -77,11 +77,11 @@ export default function DateDropdownPicker({
   }, [minYear, maxYear]);
 
   const selectBaseClass = compact
-    ? 'appearance-none text-[11px] font-bold pl-2.5 pr-7 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs cursor-pointer'
-    : 'appearance-none text-xs font-bold pl-3 pr-8 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs cursor-pointer';
+    ? 'appearance-none text-[11px] font-bold pl-2 pr-6 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs cursor-pointer'
+    : 'appearance-none text-xs font-bold pl-2.5 pr-6 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs cursor-pointer';
 
   return (
-    <div className={`inline-flex items-center gap-1.5 flex-wrap ${className}`}>
+    <div className={`inline-flex items-center gap-1.5 flex-nowrap shrink-0 ${className}`}>
       {/* Dropdown Tanggal (1..31) */}
       <div className="relative inline-flex items-center">
         <select
