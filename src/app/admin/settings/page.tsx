@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -25,40 +25,38 @@ import {
   ExternalLink,
   Sliders,
   Check,
-  Truck,
+  X,
+  Layers,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import ContinuousFormInvoice, { InvoiceItem, angkaTerbilang } from '@/components/ContinuousFormInvoice';
 
 export interface InvoiceTemplateConfig {
-  companyName: string;
-  companyTagline: string;
-  companyAddress: string;
-  companyPhone: string;
   documentTitle: string;
+  subHeaderCode: string;
+  departmentCode: string;
   paperSize: 'continuous_half_letter' | 'continuous_a4' | 'thermal_80mm';
   showItemSku: boolean;
   showDiscountCol: boolean;
   showItemNo: boolean;
   termsNotes: string;
   signerLeft: string;
-  signerMiddle: string;
   signerRight: string;
+  itemsPerPage: number;
 }
 
 export const DEFAULT_INVOICE_TEMPLATE: InvoiceTemplateConfig = {
-  companyName: 'BUMIAYU DISTRIBUTOR',
-  companyTagline: 'Distribusi & Grosir Produk Konsumsi',
-  companyAddress: 'Jl. Raya Diponegoro No. 88, Bumiayu, Brebes, Jawa Tengah',
-  companyPhone: 'WA / Telp: 0812-3456-7890',
   documentTitle: 'FAKTUR PENJUALAN',
+  subHeaderCode: '168',
+  departmentCode: 'UTM',
   paperSize: 'continuous_half_letter',
   showItemSku: true,
   showDiscountCol: true,
   showItemNo: true,
-  termsNotes: '1. Barang yang telah dibeli tidak dapat ditukar/dikembalikan tanpa persetujuan kantor.\n2. Pembayaran bilyet giro/cek baru sah jika dana sudah masuk ke rekening kami.\n3. Faktur asli ini merupakan bukti sah penagihan.',
-  signerLeft: 'Penerima / Toko',
-  signerMiddle: 'Supir / Pengirim',
-  signerRight: 'Admin / Gudang',
+  termsNotes: '',
+  signerLeft: 'Hormat Kami',
+  signerRight: 'Penerima',
+  itemsPerPage: 7,
 };
 
 interface UserProfile {
@@ -76,7 +74,7 @@ export default function AdminSettingsPage() {
   const [adminUser, setAdminUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'users' | 'invoice' | 'desktop'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'invoice' | 'desktop'>('invoice');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // --- TAB 1: USER MANAGEMENT ---
@@ -112,7 +110,10 @@ export default function AdminSettingsPage() {
   // --- TAB 2: INVOICE TEMPLATE ---
   const [templateConfig, setTemplateConfig] = useState<InvoiceTemplateConfig>(DEFAULT_INVOICE_TEMPLATE);
   const [savingTemplate, setSavingTemplate] = useState(false);
-  const [previewPly, setPreviewPly] = useState<'white' | 'pink' | 'yellow'>('white');
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewSampleType, setPreviewSampleType] = useState<'single_page' | 'multi_page'>('multi_page');
+  const [previewPaperColor, setPreviewPaperColor] = useState<'white' | 'pink' | 'yellow'>('white');
+  const [inventoryList, setInventoryList] = useState<any[]>([]);
 
   // --- TAB 3: DESKTOP APP ---
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -153,6 +154,7 @@ export default function AdminSettingsPage() {
       setAdminUsername(activeUser.user_metadata?.username || (activeUser as any).username || 'admin');
       setAuthLoading(false);
       fetchUsers();
+      fetchInventory();
     }
     init();
   }, [router]);
@@ -162,7 +164,7 @@ export default function AdminSettingsPage() {
     try {
       const saved = localStorage.getItem('bumiayu_invoice_template');
       if (saved) {
-        setTemplateConfig(JSON.parse(saved));
+        setTemplateConfig((prev) => ({ ...prev, ...JSON.parse(saved) }));
       }
     } catch (e) {
       console.error('Failed to parse saved invoice template', e);
@@ -184,6 +186,19 @@ export default function AdminSettingsPage() {
       showToast('Koneksi terputus saat mengambil pengguna', 'error');
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  // Fetch Inventory for Live Preview random goods
+  const fetchInventory = async () => {
+    try {
+      const res = await fetch('/api/master/products');
+      const data = await res.json();
+      if (res.ok && data.products) {
+        setInventoryList(data.products);
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -338,6 +353,36 @@ export default function AdminSettingsPage() {
     }
   };
 
+  // Sample items for Live Preview (matching Foto 1 & Foto 2)
+  const sampleItems: InvoiceItem[] = useMemo(() => {
+    if (previewSampleType === 'single_page') {
+      return [
+        { name: 'CH NIGHT 29 WING 9 (48)', sku: 'SC29W9', unit_name: 'PCS', quantity: 5, unit_price: 9320, total_price: 46600, discount_percent: 0 },
+        { name: 'CH NIGHT 35 WING 18 (24)', sku: 'SC35W18', unit_name: 'PCS', quantity: 3, unit_price: 25432, total_price: 76296, discount_percent: 0 },
+        { name: 'VAPE JMB TANPA ASAP (60)', sku: 'CTA', unit_name: 'KTN', quantity: 1, unit_price: 273000, total_price: 273000, discount_percent: 0 },
+      ];
+    }
+
+    // 12 items for multi-page demonstration (exceeds itemsPerPage = 7)
+    return [
+      { name: 'CH SAFE NIGHT 42 G 7 (30)', sku: 'PS7', unit_name: 'PCS', quantity: 2, unit_price: 22220, total_price: 44440, discount_percent: 0 },
+      { name: 'C COOLING 23 WING 7 (48)', sku: 'SW7', unit_name: 'PCS', quantity: 6, unit_price: 7600, total_price: 45600, discount_percent: 0 },
+      { name: 'COOLING 29 WING 10 (24)', sku: 'SW10', unit_name: 'PCS', quantity: 3, unit_price: 16291, total_price: 48873, discount_percent: 0 },
+      { name: 'C COOL NIGHT 35 W 8 (24)', sku: 'SW8', unit_name: 'PCS', quantity: 3, unit_price: 16291, total_price: 48873, discount_percent: 0 },
+      { name: 'C COOL FR 23 WING 15 (24)', sku: 'SW15', unit_name: 'PCS', quantity: 3, unit_price: 16300, total_price: 48900, discount_percent: 0 },
+      { name: 'C COOLING 23 NON 17 (24)', sku: 'SN17', unit_name: 'PCS', quantity: 3, unit_price: 16300, total_price: 48900, discount_percent: 0 },
+      { name: 'CH NIGHT 29 WING 2 (240)', sku: 'NW2', unit_name: 'RTG', quantity: 12, unit_price: 25750, total_price: 309000, discount_percent: 0 },
+      // Lanjutan ke Halaman 2:
+      { name: 'CH NIGHT 35 WING 2 (240)', sku: 'SW2', unit_name: 'RTG', quantity: 12, unit_price: 30900, total_price: 370800, discount_percent: 0 },
+      { name: 'ZHINZUI 90 SAKURA', sku: 'DS', unit_name: 'PCS', quantity: 36, unit_price: 4690, total_price: 168840, discount_percent: 0 },
+      { name: 'ZHINZUI 90 KHENZO', sku: 'OKH', unit_name: 'PCS', quantity: 36, unit_price: 4690, total_price: 168840, discount_percent: 0 },
+      { name: 'ZINZUI SZBUN KIRAI (144)', sku: 'OK', unit_name: 'PCS', quantity: 72, unit_price: 4690, total_price: 337680, discount_percent: 0 },
+      { name: 'SB HARMONI ORANGE (72)', sku: 'DO', unit_name: 'PCS', quantity: 24, unit_price: 2535, total_price: 60840, discount_percent: 0 },
+    ];
+  }, [previewSampleType]);
+
+  const sampleGrandTotal = sampleItems.reduce((sum, it) => sum + it.total_price, 0);
+
   // Trigger PWA Install
   const handleInstallPWA = async () => {
     if (installPrompt) {
@@ -382,7 +427,6 @@ export default function AdminSettingsPage() {
   };
 
   const salesUsers = usersList.filter((u) => u.role === 'sales');
-  const adminUsers = usersList.filter((u) => u.role === 'owner' || u.role === 'admin');
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-16">
@@ -440,6 +484,18 @@ export default function AdminSettingsPage() {
         {/* Navigation Tabs - Full Width with Space Between */}
         <div className="w-full flex items-center justify-between border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-1 gap-1 sm:gap-2 no-scrollbar">
           <button
+            onClick={() => setActiveTab('invoice')}
+            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center cursor-pointer ${
+              activeTab === 'invoice'
+                ? 'border-emerald-600 text-emerald-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Printer className="w-4 h-4 shrink-0" />
+            <span>Desain Template Cetak Faktur</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('users')}
             className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center cursor-pointer ${
               activeTab === 'users'
@@ -455,18 +511,6 @@ export default function AdminSettingsPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab('invoice')}
-            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center cursor-pointer ${
-              activeTab === 'invoice'
-                ? 'border-emerald-600 text-emerald-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <Printer className="w-4 h-4 shrink-0" />
-            <span>Desain Template Cetak Faktur</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('desktop')}
             className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center cursor-pointer ${
               activeTab === 'desktop'
@@ -479,7 +523,273 @@ export default function AdminSettingsPage() {
           </button>
         </div>
 
-        {/* TAB 1: USERS & PROFILE MANAGEMENT */}
+        {/* =================================================================== */}
+        {/* TAB 1: INVOICE TEMPLATE DESIGNER                                    */}
+        {/* =================================================================== */}
+        {activeTab === 'invoice' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Kolom Kiri: Form Konfigurasi Template */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+                <div className="flex items-center justify-between mb-4 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      Parameter Template Faktur Penjualan
+                    </h2>
+                  </div>
+                  <button
+                    onClick={handleResetTemplate}
+                    type="button"
+                    className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline font-semibold cursor-pointer"
+                  >
+                    Reset ke Default
+                  </button>
+                </div>
+
+                <div className="space-y-4 text-xs">
+                  {/* Judul & Kode Header (Sesuai Foto 1) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                        Judul Dokumen Nota (Kiri Atas) *
+                      </label>
+                      <input
+                        type="text"
+                        value={templateConfig.documentTitle}
+                        onChange={(e) => setTemplateConfig({ ...templateConfig, documentTitle: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl font-bold uppercase focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="cth: FAKTUR PENJUALAN"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                        Kode Sub-Header
+                      </label>
+                      <input
+                        type="text"
+                        value={templateConfig.subHeaderCode}
+                        onChange={(e) => setTemplateConfig({ ...templateConfig, subHeaderCode: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl font-bold uppercase focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="cth: 168"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                        Kode Departemen (Kanan Atas)
+                      </label>
+                      <input
+                        type="text"
+                        value={templateConfig.departmentCode}
+                        onChange={(e) => setTemplateConfig({ ...templateConfig, departmentCode: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl font-mono uppercase focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="cth: UTM"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                        Maksimal Baris Item / Halaman
+                      </label>
+                      <input
+                        type="number"
+                        min="4"
+                        max="20"
+                        value={templateConfig.itemsPerPage || 7}
+                        onChange={(e) => setTemplateConfig({ ...templateConfig, itemsPerPage: Number(e.target.value) || 7 })}
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-0.5">Jika melebihi, otomatis lanjut ke halaman berikutnya (Foto 2)</p>
+                    </div>
+                  </div>
+
+                  {/* Format Kertas Continuous */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      Ukuran Kertas Printer Continuous Form Dot-Matrix
+                    </label>
+                    <select
+                      value={templateConfig.paperSize}
+                      onChange={(e) => setTemplateConfig({ ...templateConfig, paperSize: e.target.value as any })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    >
+                      <option value="continuous_half_letter">Continuous Form 9.5 x 5.5 inch (Epson LX-310 1/2 Letter/Wartel)</option>
+                      <option value="continuous_a4">Continuous Form 9.5 x 11 inch (Full Page A4)</option>
+                    </select>
+                  </div>
+
+                  {/* Kolom Tabel Toggles */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <label className="font-bold block mb-2 text-slate-700 dark:text-slate-300">
+                      Kolom Tabel Produk yang Ditampilkan
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <label className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl cursor-pointer text-slate-800 dark:text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={templateConfig.showItemNo}
+                          onChange={(e) => setTemplateConfig({ ...templateConfig, showItemNo: e.target.checked })}
+                          className="rounded text-emerald-600 focus:ring-0"
+                        />
+                        <span>No. Urut</span>
+                      </label>
+                      <label className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl cursor-pointer text-slate-800 dark:text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={templateConfig.showItemSku}
+                          onChange={(e) => setTemplateConfig({ ...templateConfig, showItemSku: e.target.checked })}
+                          className="rounded text-emerald-600 focus:ring-0"
+                        />
+                        <span>Kode Item (SKU)</span>
+                      </label>
+                      <label className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl cursor-pointer text-slate-800 dark:text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={templateConfig.showDiscountCol}
+                          onChange={(e) => setTemplateConfig({ ...templateConfig, showDiscountCol: e.target.checked })}
+                          className="rounded text-emerald-600 focus:ring-0"
+                        />
+                        <span>Potongan (Pot)</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Syarat Ketentuan Nota (Foto 4 Rule: Kosong tidak mencetak judul) */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold block text-slate-700 dark:text-slate-300">
+                        Catatan & Syarat Ketentuan (Footer Nota)
+                      </label>
+                      <span className="text-[10px] text-slate-500 italic">
+                        *Kosongkan bila tidak ingin mencetak syarat &amp; ketentuan (Foto 4)
+                      </span>
+                    </div>
+                    <textarea
+                      rows={2}
+                      value={templateConfig.termsNotes}
+                      onChange={(e) => setTemplateConfig({ ...templateConfig, termsNotes: e.target.value })}
+                      placeholder="Kosongkan agar tidak muncul sama sekali di nota..."
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  {/* Format Tanda Tangan: 2 Kolom Saja (Foto 1 & 2) */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <label className="font-bold block mb-2 text-slate-700 dark:text-slate-300">
+                      Label Kolom Tanda Tangan (2 Kolom: Pengirim & Penerima)
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block mb-0.5">Kolom Kiri</span>
+                        <input
+                          type="text"
+                          value={templateConfig.signerLeft}
+                          onChange={(e) => setTemplateConfig({ ...templateConfig, signerLeft: e.target.value })}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-center font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block mb-0.5">Kolom Kanan</span>
+                        <input
+                          type="text"
+                          value={templateConfig.signerRight}
+                          onChange={(e) => setTemplateConfig({ ...templateConfig, signerRight: e.target.value })}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-center font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tombol Simpan & Tombol Pop-up Preview */}
+                  <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsPreviewModalOpen(true)}
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-black text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Eye className="w-4 h-4 text-amber-400" />
+                      <span>Buka Pop-up Live Preview (Rasio Riil 9.5 x 5.5")</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveTemplate}
+                      disabled={savingTemplate}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      {savingTemplate ? 'Menyimpan...' : 'Simpan Template Faktur'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Kolom Kanan: Card Pemicu Preview Pop-Up & Penjelasan Teknis */}
+            <div className="lg:col-span-5 space-y-4">
+              <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+                <div className="flex items-center gap-2.5 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                    <Printer className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900 dark:text-slate-100">
+                      Standar Cetak Faktur Dot-Matrix
+                    </h3>
+                    <p className="text-xs text-slate-500">Kertas Continuous 3-Ply NCR (Epson LX-310)</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
+                    <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Check className="w-4 h-4 text-emerald-600" />
+                      1 Dokumen untuk 3 Lembar Sekaligus (Foto 3)
+                    </div>
+                    <p className="text-[11px]">
+                      Kertas continuous NCR 3-ply tercetak sekaligus dengan 1 kali ketukan jarum pita. Sistem tidak perlu mencetak 3 kali terpisah, sehingga tidak membebani jarum dan pita printer.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
+                    <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Check className="w-4 h-4 text-emerald-600" />
+                      Paging Otomatis &amp; Header Minimal (Foto 2)
+                    </div>
+                    <p className="text-[11px]">
+                      Jika pesanan melebihi batas {templateConfig.itemsPerPage || 7} item, halaman kedua tidak lagi membuang ruang untuk kop/alamat lengkap, melainkan langsung melanjutkan tabel produk dengan header minimal 1 baris.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
+                    <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Check className="w-4 h-4 text-emerald-600" />
+                      Tanda Tangan Hormat Kami &amp; Penerima (Foto 1)
+                    </div>
+                    <p className="text-[11px]">
+                      Hanya menampilkan 2 pihak (pengirim dan penerima toko) dengan penulisan terbilang rupiah di footer nota.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewModalOpen(true)}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Buka Live Preview Pop-up Sekarang</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB 2: PROFIL ADMIN & USER MANAGEMENT                               */}
+        {/* =================================================================== */}
         {activeTab === 'users' && (
           <div className="space-y-6">
             {/* 1. Pengaturan Akun Admin Sendiri */}
@@ -655,387 +965,9 @@ export default function AdminSettingsPage() {
           </div>
         )}
 
-        {/* TAB 2: INVOICE TEMPLATE */}
-        {activeTab === 'invoice' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Kolom Kiri: Form Konfigurasi Template */}
-            <div className="lg:col-span-6 space-y-4">
-              <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-                <div className="flex items-center justify-between mb-4 border-b border-slate-200 dark:border-slate-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                      Parameter Template Faktur Penjualan
-                    </h2>
-                  </div>
-                  <button
-                    onClick={handleResetTemplate}
-                    type="button"
-                    className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline font-semibold cursor-pointer"
-                  >
-                    Reset ke Default
-                  </button>
-                </div>
-
-                <div className="space-y-3.5 text-xs">
-                  {/* Judul & Dokumen */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                        Nama Perusahaan / Usaha *
-                      </label>
-                      <input
-                        type="text"
-                        value={templateConfig.companyName}
-                        onChange={(e) => setTemplateConfig({ ...templateConfig, companyName: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl font-bold uppercase focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                        Judul Dokumen Nota *
-                      </label>
-                      <input
-                        type="text"
-                        value={templateConfig.documentTitle}
-                        onChange={(e) => setTemplateConfig({ ...templateConfig, documentTitle: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl font-bold uppercase focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                      Tagline / Sub-header Usaha
-                    </label>
-                    <input
-                      type="text"
-                      value={templateConfig.companyTagline}
-                      onChange={(e) => setTemplateConfig({ ...templateConfig, companyTagline: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                        Alamat Perusahaan
-                      </label>
-                      <input
-                        type="text"
-                        value={templateConfig.companyAddress}
-                        onChange={(e) => setTemplateConfig({ ...templateConfig, companyAddress: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                        No. Telepon / WhatsApp
-                      </label>
-                      <input
-                        type="text"
-                        value={templateConfig.companyPhone}
-                        onChange={(e) => setTemplateConfig({ ...templateConfig, companyPhone: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Format Kertas Continuous */}
-                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                    <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                      Ukuran Kertas Printer Continuous Form
-                    </label>
-                    <select
-                      value={templateConfig.paperSize}
-                      onChange={(e) => setTemplateConfig({ ...templateConfig, paperSize: e.target.value as any })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    >
-                      <option value="continuous_half_letter">Continuous Form 9.5 x 5.5 inch (Epson LX-310 1/2 Wartel/Letter)</option>
-                      <option value="continuous_a4">Continuous Form 9.5 x 11 inch (Full Page A4)</option>
-                      <option value="thermal_80mm">Kertas Kasir Thermal 80mm</option>
-                    </select>
-                  </div>
-
-                  {/* Kolom Tabel Toggles */}
-                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                    <label className="font-bold block mb-2 text-slate-700 dark:text-slate-300">
-                      Kolom Tabel Produk yang Ditampilkan
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <label className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl cursor-pointer text-slate-800 dark:text-slate-200">
-                        <input
-                          type="checkbox"
-                          checked={templateConfig.showItemNo}
-                          onChange={(e) => setTemplateConfig({ ...templateConfig, showItemNo: e.target.checked })}
-                          className="rounded text-emerald-600 focus:ring-0"
-                        />
-                        <span>No. Urut</span>
-                      </label>
-                      <label className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl cursor-pointer text-slate-800 dark:text-slate-200">
-                        <input
-                          type="checkbox"
-                          checked={templateConfig.showItemSku}
-                          onChange={(e) => setTemplateConfig({ ...templateConfig, showItemSku: e.target.checked })}
-                          className="rounded text-emerald-600 focus:ring-0"
-                        />
-                        <span>Kode SKU</span>
-                      </label>
-                      <label className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl cursor-pointer text-slate-800 dark:text-slate-200">
-                        <input
-                          type="checkbox"
-                          checked={templateConfig.showDiscountCol}
-                          onChange={(e) => setTemplateConfig({ ...templateConfig, showDiscountCol: e.target.checked })}
-                          className="rounded text-emerald-600 focus:ring-0"
-                        />
-                        <span>Diskon (%)</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Syarat Ketentuan Nota */}
-                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                    <label className="font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                      Catatan & Syarat Ketentuan (Footer Nota)
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={templateConfig.termsNotes}
-                      onChange={(e) => setTemplateConfig({ ...templateConfig, termsNotes: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  {/* Format Tanda Tangan */}
-                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                    <label className="font-bold block mb-2 text-slate-700 dark:text-slate-300">
-                      Label Kolom Tanda Tangan (3 Kolom)
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <span className="text-[10px] text-slate-500 block mb-0.5">Kiri</span>
-                        <input
-                          type="text"
-                          value={templateConfig.signerLeft}
-                          onChange={(e) => setTemplateConfig({ ...templateConfig, signerLeft: e.target.value })}
-                          className="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 block mb-0.5">Tengah</span>
-                        <input
-                          type="text"
-                          value={templateConfig.signerMiddle}
-                          onChange={(e) => setTemplateConfig({ ...templateConfig, signerMiddle: e.target.value })}
-                          className="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 block mb-0.5">Kanan</span>
-                        <input
-                          type="text"
-                          value={templateConfig.signerRight}
-                          onChange={(e) => setTemplateConfig({ ...templateConfig, signerRight: e.target.value })}
-                          className="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Simpan Template Button */}
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={handleSaveTemplate}
-                      disabled={savingTemplate}
-                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <Save className="w-4 h-4" />
-                      {savingTemplate ? 'Menyimpan Template...' : 'Simpan Konfigurasi Template Faktur'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Kolom Kanan: Live Interactive Dot Matrix Preview */}
-            <div className="lg:col-span-6 space-y-4">
-              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-                <div className="flex items-center justify-between mb-3 border-b border-slate-200 dark:border-slate-800 pb-2">
-                  <div className="flex items-center gap-2">
-                    <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                      Live Preview Cetak Dot Matrix 3-Ply
-                    </h3>
-                  </div>
-
-                  {/* Switch Ply Color Preview */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewPly('white')}
-                      className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
-                        previewPly === 'white'
-                          ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900'
-                          : 'bg-transparent text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-                      }`}
-                    >
-                      Ply 1 (Asli)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewPly('pink')}
-                      className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
-                        previewPly === 'pink'
-                          ? 'bg-pink-100 text-pink-900 border-pink-400 font-extrabold'
-                          : 'bg-transparent text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-                      }`}
-                    >
-                      Ply 2 (Toko)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewPly('yellow')}
-                      className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
-                        previewPly === 'yellow'
-                          ? 'bg-amber-100 text-amber-900 border-amber-400 font-extrabold'
-                          : 'bg-transparent text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-                      }`}
-                    >
-                      Ply 3 (Gudang)
-                    </button>
-                  </div>
-                </div>
-
-                {/* Simulasi Kertas Continuous Dot Matrix */}
-                <div
-                  className={`p-4 rounded-lg font-mono text-[11px] leading-tight shadow-md border overflow-x-auto ${
-                    previewPly === 'white'
-                      ? 'bg-[#fbfbf8] text-slate-900 border-slate-300'
-                      : previewPly === 'pink'
-                      ? 'bg-[#ffeef2] text-slate-900 border-pink-300'
-                      : 'bg-[#fffde6] text-slate-900 border-amber-300'
-                  }`}
-                  style={{ fontFamily: 'Courier New, Courier, monospace' }}
-                >
-                  {/* Header Nota */}
-                  <div className="flex items-start justify-between border-b border-dashed border-slate-400 pb-2 mb-2">
-                    <div>
-                      <h4 className="text-xs font-black tracking-wider uppercase">{templateConfig.companyName}</h4>
-                      <p className="text-[10px]">{templateConfig.companyTagline}</p>
-                      <p className="text-[9px] text-slate-600">{templateConfig.companyAddress}</p>
-                      <p className="text-[9px] text-slate-600">{templateConfig.companyPhone}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs font-black tracking-widest text-emerald-800 uppercase">
-                        {templateConfig.documentTitle}
-                      </div>
-                      <div className="text-[10px] font-bold">FAK-202611-0001</div>
-                      <div className="text-[9px]">Tgl: 17/11/2026 | JT: 24/11/2026</div>
-                      <div className="text-[9px] font-bold text-emerald-700">
-                        {previewPly === 'white' ? 'LEMBAR ASLI (PENAGIHAN)' : previewPly === 'pink' ? 'SALINAN 2 (ARSIP TOKO)' : 'SALINAN 3 (PENGIRIMAN/SUPIR)'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Info Pelanggan */}
-                  <div className="flex justify-between text-[10px] mb-2 border-b border-dashed border-slate-300 pb-1.5">
-                    <div>
-                      <span className="font-bold">Kepada Yth:</span> TOKO BAROKAH JAYA (TK-003)
-                      <div className="text-slate-600">Jl. Pagojengan RT 02/01, Bumiayu | Telp: 0812-9988-7766</div>
-                    </div>
-                    <div className="text-right">
-                      <div>Sales: <strong>Budi Santoso</strong></div>
-                      <div>Syarat Bayar: <strong>TOP 7 Hari</strong></div>
-                    </div>
-                  </div>
-
-                  {/* Tabel Preview */}
-                  <table className="w-full text-left border-collapse border-t border-b border-black mb-2 text-[10px]">
-                    <thead>
-                      <tr className="border-b border-black font-bold uppercase">
-                        {templateConfig.showItemNo && <th className="py-1 w-6">No</th>}
-                        <th className="py-1">Nama Barang {templateConfig.showItemSku && '/ SKU'}</th>
-                        <th className="py-1 text-center">Satuan</th>
-                        <th className="py-1 text-center">Qty</th>
-                        <th className="py-1 text-right">Harga (Rp)</th>
-                        {templateConfig.showDiscountCol && <th className="py-1 text-right">Disc %</th>}
-                        <th className="py-1 text-right">Subtotal (Rp)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-dashed divide-slate-300">
-                      <tr>
-                        {templateConfig.showItemNo && <td className="py-1">1</td>}
-                        <td className="py-1">
-                          <span className="font-bold">Body Fit Day Wing 23cm</span>
-                          {templateConfig.showItemSku && <span className="text-[9px] block text-slate-600 font-mono">CHR-DAY-WING-23</span>}
-                        </td>
-                        <td className="py-1 text-center">KTN</td>
-                        <td className="py-1 text-center font-bold">3</td>
-                        <td className="py-1 text-right">81.000</td>
-                        {templateConfig.showDiscountCol && <td className="py-1 text-right text-emerald-800 font-bold">5%</td>}
-                        <td className="py-1 text-right font-bold">230.850</td>
-                      </tr>
-                      <tr>
-                        {templateConfig.showItemNo && <td className="py-1">2</td>}
-                        <td className="py-1">
-                          <span className="font-bold">Safe Night 35cm Wing</span>
-                          {templateConfig.showItemSku && <span className="text-[9px] block text-slate-600 font-mono">CHR-NIGHT-35</span>}
-                        </td>
-                        <td className="py-1 text-center">BD</td>
-                        <td className="py-1 text-center font-bold">2</td>
-                        <td className="py-1 text-right">12.500</td>
-                        {templateConfig.showDiscountCol && <td className="py-1 text-right">0%</td>}
-                        <td className="py-1 text-right font-bold">25.000</td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  {/* Summary & Footer */}
-                  <div className="flex items-start justify-between gap-4 pt-1 mb-3">
-                    <div className="max-w-[60%] text-[9px] text-slate-700 whitespace-pre-line leading-relaxed">
-                      <strong>Syarat & Ketentuan:</strong>
-                      <br />
-                      {templateConfig.termsNotes}
-                    </div>
-                    <div className="text-right min-w-[35%]">
-                      <div className="text-[10px]">Total Item: <strong>2 Macam (5 Satuan)</strong></div>
-                      <div className="text-xs font-black pt-1 border-t border-black">
-                        TOTAL: Rp 255.850
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tanda Tangan */}
-                  <div className="grid grid-cols-3 gap-4 text-center text-[10px] pt-3 border-t border-dashed border-slate-400">
-                    <div>
-                      <p className="font-bold">{templateConfig.signerLeft}</p>
-                      <div className="h-9"></div>
-                      <p className="border-t border-dotted border-black pt-0.5">(..........................)</p>
-                    </div>
-                    <div>
-                      <p className="font-bold">{templateConfig.signerMiddle}</p>
-                      <div className="h-9"></div>
-                      <p className="border-t border-dotted border-black pt-0.5">(..........................)</p>
-                    </div>
-                    <div>
-                      <p className="font-bold">{templateConfig.signerRight}</p>
-                      <div className="h-9"></div>
-                      <p className="border-t border-dotted border-black pt-0.5">(..........................)</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>* Ukuran kertas aktif: <strong className="text-slate-800 dark:text-slate-200">{templateConfig.paperSize}</strong></span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Kompatibel printer dot-matrix Epson LX-310 / LQ-310</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: DESKTOP APP DOWNLOAD */}
+        {/* =================================================================== */}
+        {/* TAB 3: DESKTOP APP DOWNLOAD                                         */}
+        {/* =================================================================== */}
         {activeTab === 'desktop' && (
           <div className="space-y-6">
             <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
@@ -1146,6 +1078,165 @@ export default function AdminSettingsPage() {
           </div>
         )}
       </div>
+
+      {/* =================================================================== */}
+      {/* POP-UP MODAL: LIVE PREVIEW FAKTUR (RASIO UKURAN KERTAS RIIL)       */}
+      {/* =================================================================== */}
+      {isPreviewModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto flex items-center justify-center">
+          <div className="my-auto w-full max-w-5xl bg-slate-900 text-white rounded-3xl border border-slate-700 shadow-2xl p-4 sm:p-6 space-y-4 max-h-[96vh] flex flex-col">
+            {/* Modal Header & Controls */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <Eye className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-white">
+                    Live Preview Faktur Dot-Matrix (Rasio Riil 9.5 x 5.5")
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Mensimulasikan cetakan printer Epson LX-310 pada kertas continuous form 3-ply
+                  </p>
+                </div>
+              </div>
+
+              {/* Controls bar */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Switch Data Sampel */}
+                <div className="flex items-center p-1 bg-slate-800 rounded-xl border border-slate-700 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewSampleType('single_page')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                      previewSampleType === 'single_page'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    1 Halaman (3 Item)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewSampleType('multi_page')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                      previewSampleType === 'multi_page'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    2 Halaman (12 Item)
+                  </button>
+                </div>
+
+                {/* Switch Warna Kertas NCR */}
+                <div className="flex items-center p-1 bg-slate-800 rounded-xl border border-slate-700 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPaperColor('white')}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${
+                      previewPaperColor === 'white'
+                        ? 'bg-white text-slate-900 font-extrabold'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    Putih (Asli)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPaperColor('pink')}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${
+                      previewPaperColor === 'pink'
+                        ? 'bg-pink-100 text-pink-900 font-extrabold'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    Merah Muda
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPaperColor('yellow')}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${
+                      previewPaperColor === 'yellow'
+                        ? 'bg-amber-100 text-amber-900 font-extrabold'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    Kuning
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 cursor-pointer ml-auto"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: Realistic Continuous Tractor Feed Paper Container */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-6">
+              {/* Paper Visualizer with Sprocket Holes */}
+              <div
+                className={`w-full max-w-4xl mx-auto rounded-xl p-4 sm:p-6 shadow-2xl border transition-colors ${
+                  previewPaperColor === 'white'
+                    ? 'bg-[#fcfcf9] text-slate-950 border-slate-300'
+                    : previewPaperColor === 'pink'
+                    ? 'bg-[#fff0f4] text-slate-950 border-pink-300'
+                    : 'bg-[#fffde6] text-slate-950 border-amber-300'
+                }`}
+              >
+                {/* Perforation Sprocket Holes Header */}
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-dashed border-slate-400 text-[10px] text-slate-500 font-mono">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full border border-slate-400 inline-block"></span>
+                    <span className="w-2 h-2 rounded-full border border-slate-400 inline-block"></span>
+                    <span className="w-2 h-2 rounded-full border border-slate-400 inline-block"></span>
+                    <span className="ml-2">CONTINUOUS FORM 9.5 x 5.5 INCH (EPSON LX-310)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span>{previewSampleType === 'multi_page' ? 'TOTAL 2 HALAMAN' : 'TOTAL 1 HALAMAN'}</span>
+                    <span className="w-2 h-2 rounded-full border border-slate-400 inline-block"></span>
+                    <span className="w-2 h-2 rounded-full border border-slate-400 inline-block"></span>
+                    <span className="w-2 h-2 rounded-full border border-slate-400 inline-block"></span>
+                  </div>
+                </div>
+
+                {/* Render Dokumen Menggunakan Format Riil Sesuai Foto 1 & Foto 2 */}
+                <ContinuousFormInvoice
+                  invoiceNo="4826/JL/UTM/1126"
+                  orderNo="SO-202611-0089"
+                  storeName="HANANIA MART"
+                  storeAddress="DEPAN SD PULO KULON"
+                  salesName="RT"
+                  orderDate="17/11/2026 17.02.50"
+                  dueDate="17/11/2026"
+                  notes=""
+                  items={sampleItems}
+                  grandTotal={sampleGrandTotal}
+                  plyType="PUTIH"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+              <span className="text-slate-400 text-[11px]">
+                * Tanda tangan hanya menampilkan <strong>{templateConfig.signerLeft}</strong> &amp; <strong>{templateConfig.signerRight}</strong>. Halaman 2 otomatis menggunakan header minimal.
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsPreviewModalOpen(false)}
+                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer"
+              >
+                Tutup Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: Tambah Sales Baru */}
       {isAddSalesModalOpen && (

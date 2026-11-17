@@ -2950,61 +2950,25 @@ export default function AdminDashboardPage() {
                     Faktur #{oIdx + 1} dari {printingOrdersList.length}: {orderItem.store?.name} ({orderItem.order_no})
                   </div>
 
-                  {/* Lembar 1: Putih */}
+                  {/* Cetak 1 Dokumen Faktur (Kertas 3-Ply Carbon NCR otomatis tercetak ke 3 lembar secara fisik) */}
                   <ContinuousFormInvoice
                     invoiceNo={`INV-${orderItem.order_no.replace('SO-', '')}`}
                     orderNo={orderItem.order_no}
                     storeName={orderItem.store?.name}
                     storeAddress={orderItem.store?.address}
+                    salesName={orderItem.sales?.full_name || 'Admin'}
                     orderDate={orderItem.order_date}
                     dueDate={orderItem.store?.top_days > 0 ? `${orderItem.store.top_days} Hari (TOP)` : 'Tunai'}
+                    notes={orderItem.customer_notes || orderItem.admin_notes}
                     items={orderItem.items.map((it: any) => ({
                       name: it.product?.name || 'Item',
+                      sku: it.product?.sku,
                       unit_name: it.unit_name,
                       quantity: it.quantity,
                       unit_price: it.unit_price,
                       total_price: it.total_price,
                     }))}
                     grandTotal={orderItem.grand_total}
-                    plyType="PUTIH"
-                  />
-
-                  {/* Lembar 2: Pink */}
-                  <ContinuousFormInvoice
-                    invoiceNo={`INV-${orderItem.order_no.replace('SO-', '')}`}
-                    orderNo={orderItem.order_no}
-                    storeName={orderItem.store?.name}
-                    storeAddress={orderItem.store?.address}
-                    orderDate={orderItem.order_date}
-                    dueDate={orderItem.store?.top_days > 0 ? `${orderItem.store.top_days} Hari (TOP)` : 'Tunai'}
-                    items={orderItem.items.map((it: any) => ({
-                      name: it.product?.name || 'Item',
-                      unit_name: it.unit_name,
-                      quantity: it.quantity,
-                      unit_price: it.unit_price,
-                      total_price: it.total_price,
-                    }))}
-                    grandTotal={orderItem.grand_total}
-                    plyType="PINK"
-                  />
-
-                  {/* Lembar 3: Kuning */}
-                  <ContinuousFormInvoice
-                    invoiceNo={`INV-${orderItem.order_no.replace('SO-', '')}`}
-                    orderNo={orderItem.order_no}
-                    storeName={orderItem.store?.name}
-                    storeAddress={orderItem.store?.address}
-                    orderDate={orderItem.order_date}
-                    dueDate={orderItem.store?.top_days > 0 ? `${orderItem.store.top_days} Hari (TOP)` : 'Tunai'}
-                    items={orderItem.items.map((it: any) => ({
-                      name: it.product?.name || 'Item',
-                      unit_name: it.unit_name,
-                      quantity: it.quantity,
-                      unit_price: it.unit_price,
-                      total_price: it.total_price,
-                    }))}
-                    grandTotal={orderItem.grand_total}
-                    plyType="KUNING"
                   />
                 </div>
               ))}
