@@ -33,6 +33,21 @@ export interface InvoiceItem {
   discount_percent?: number;
 }
 
+export interface InvoiceTemplateOptions {
+  documentTitle?: string;
+  subHeaderCode?: string;
+  departmentCode?: string;
+  paperSize?: string;
+  showItemSku?: boolean;
+  showDiscountCol?: boolean;
+  showItemNo?: boolean;
+  termsNotes?: string;
+  signerLeft?: string;
+  signerRight?: string;
+  itemsPerPage?: number;
+  fontSize?: '9px' | '10px' | '11px' | '12px';
+}
+
 export interface ContinuousFormInvoiceProps {
   invoiceNo?: string;
   orderNo?: string;
@@ -46,6 +61,7 @@ export interface ContinuousFormInvoiceProps {
   grandTotal: number;
   notes?: string;
   plyType?: 'PUTIH' | 'PINK' | 'KUNING';
+  customTemplate?: InvoiceTemplateOptions;
 }
 
 export default function ContinuousFormInvoice({
@@ -60,8 +76,9 @@ export default function ContinuousFormInvoice({
   grandTotal = 0,
   notes = '',
   plyType = 'PUTIH',
+  customTemplate,
 }: ContinuousFormInvoiceProps) {
-  const [template, setTemplate] = useState({
+  const [savedTemplate, setSavedTemplate] = useState<InvoiceTemplateOptions>({
     documentTitle: 'FAKTUR PENJUALAN',
     subHeaderCode: '168',
     departmentCode: 'UTM',
@@ -71,22 +88,26 @@ export default function ContinuousFormInvoice({
     termsNotes: '',
     signerLeft: 'Hormat Kami',
     signerRight: 'Penerima',
-    itemsPerPage: 7, // Standar kertas continuous 9.5 x 5.5 inch
+    itemsPerPage: 11, // Default 11 item agar muat 1 faktur
+    fontSize: '10px',
   });
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem('bumiayu_invoice_template');
       if (saved) {
-        setTemplate((prev) => ({ ...prev, ...JSON.parse(saved) }));
+        setSavedTemplate((prev) => ({ ...prev, ...JSON.parse(saved) }));
       }
     } catch (e) {
       console.error('Failed to parse invoice template', e);
     }
   }, []);
 
+  // Gabungkan template tersimpan dengan live customTemplate jika ada
+  const template = { ...savedTemplate, ...(customTemplate || {}) };
+
   // Pecah daftar barang menjadi halaman (Paging untuk Continuous Form)
-  const itemsPerPage = Math.max(4, template.itemsPerPage || 7);
+  const itemsPerPage = Math.max(4, template.itemsPerPage || 11);
   const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
   const pages: InvoiceItem[][] = [];
   for (let i = 0; i < totalPages; i++) {
@@ -99,8 +120,10 @@ export default function ContinuousFormInvoice({
   // Format currency helper
   const fmt = (val: number) => Number(val || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const activeFontSize = template.fontSize || '10px';
+
   return (
-    <div className="space-y-6 print:space-y-0">
+    <div className="space-y-6 print:space-y-0 font-mono">
       {pages.map((pageItems, pageIdx) => {
         const isFirstPage = pageIdx === 0;
         const isLastPage = pageIdx === totalPages - 1;
@@ -109,9 +132,10 @@ export default function ContinuousFormInvoice({
         return (
           <div
             key={pageIdx}
-            className="w-full max-w-4xl mx-auto p-5 sm:p-7 bg-[#fafaf7] text-slate-900 border border-slate-300 shadow-sm print:shadow-none print:border-none print:p-0 print:m-0 font-mono text-[11px] leading-tight"
+            className="w-full max-w-4xl mx-auto p-4 sm:p-6 bg-[#fafaf7] text-slate-900 border border-slate-300 shadow-xs print:shadow-none print:border-none print:p-0 print:m-0 leading-tight"
             style={{
               fontFamily: 'Courier New, Courier, monospace',
+              fontSize: activeFontSize,
               pageBreakAfter: isLastPage ? 'auto' : 'always',
             }}
           >
@@ -120,15 +144,15 @@ export default function ContinuousFormInvoice({
             {/* ================================================================= */}
             {isFirstPage ? (
               // Halaman Pertama: Header Faktur Lengkap (Sesuai Foto 1)
-              <div className="grid grid-cols-12 gap-2 pb-2 mb-2 border-b border-black text-[11px]">
+              <div className="grid grid-cols-12 gap-2 pb-1.5 mb-1.5 border-b border-black">
                 {/* Kolom Kiri: Judul Dokumen & Sub-code */}
                 <div className="col-span-4 flex flex-col justify-between">
                   <div>
-                    <h1 className="text-base sm:text-lg font-black tracking-wider uppercase text-black">
+                    <h1 className="font-black tracking-wider uppercase text-black" style={{ fontSize: '130%' }}>
                       {template.documentTitle || 'FAKTUR PENJUALAN'}
                     </h1>
                     {template.subHeaderCode?.trim() && (
-                      <div className="text-xs font-bold text-slate-700 tracking-wide mt-0.5">
+                      <div className="font-bold text-slate-700 tracking-wide mt-0.5">
                         {template.subHeaderCode}
                       </div>
                     )}
@@ -165,7 +189,7 @@ export default function ContinuousFormInvoice({
                   <div>User  : <strong>ADMIN</strong></div>
                   <div>PPN   : <strong>Non</strong></div>
                   {totalPages > 1 && (
-                    <div className="text-[10px] text-slate-600 font-bold mt-1">
+                    <div className="font-bold text-slate-600 mt-1" style={{ fontSize: '90%' }}>
                       Hal: {pageIdx + 1} / {totalPages}
                     </div>
                   )}
@@ -173,9 +197,9 @@ export default function ContinuousFormInvoice({
               </div>
             ) : (
               // Halaman Lanjutan (Foto 2): Header Minimal 1-Baris Saja
-              <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-dashed border-black text-[11px]">
+              <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-dashed border-black">
                 <div className="flex items-center gap-2">
-                  <span className="font-black uppercase text-xs">
+                  <span className="font-black uppercase">
                     [{template.documentTitle || 'FAKTUR PENJUALAN'} - Lanjutan Hal {pageIdx + 1}]
                   </span>
                   <span className="text-slate-600">No: <strong>{invoiceNo}</strong></span>
@@ -187,18 +211,18 @@ export default function ContinuousFormInvoice({
             )}
 
             {/* ================================================================= */}
-            {/* TABEL RINCIAN PRODUK (Sesuai Foto 1 & Foto 2)                     */}
+            {/* TABEL RINCIAN PRODUK (Padat & Efisien, Muat 11+ Item)              */}
             {/* ================================================================= */}
-            <table className="w-full text-left border-collapse mb-2 text-[11px]">
+            <table className="w-full text-left border-collapse mb-1.5">
               <thead>
                 <tr className="border-t border-b border-black font-bold uppercase">
-                  {template.showItemNo && <th className="py-1 w-7 text-center">No.</th>}
-                  {template.showItemSku && <th className="py-1 w-24">Kode Item</th>}
-                  <th className="py-1">Nama Item</th>
-                  <th className="py-1 text-right w-24">Jml Satuan</th>
-                  <th className="py-1 text-right w-24">Harga</th>
-                  {template.showDiscountCol && <th className="py-1 text-right w-16">Pot</th>}
-                  <th className="py-1 text-right w-28">Total</th>
+                  {template.showItemNo && <th className="py-0.5 w-7 text-center">No.</th>}
+                  {template.showItemSku && <th className="py-0.5 w-24">Kode Item</th>}
+                  <th className="py-0.5">Nama Item</th>
+                  <th className="py-0.5 text-right w-24">Jml Satuan</th>
+                  <th className="py-0.5 text-right w-24">Harga</th>
+                  {template.showDiscountCol && <th className="py-0.5 text-right w-16">Pot</th>}
+                  <th className="py-0.5 text-right w-28">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-dotted divide-slate-300">
@@ -215,29 +239,29 @@ export default function ContinuousFormInvoice({
                   return (
                     <tr key={itemIdx} className="hover:bg-slate-100/50">
                       {template.showItemNo && (
-                        <td className="py-1 text-center align-top">{globalIdx}</td>
+                        <td className="py-0.5 text-center align-top">{globalIdx}</td>
                       )}
                       {template.showItemSku && (
-                        <td className="py-1 align-top font-mono font-semibold uppercase">
+                        <td className="py-0.5 align-top font-mono font-semibold uppercase">
                           {it.sku || '-'}
                         </td>
                       )}
-                      <td className="py-1 align-top">
+                      <td className="py-0.5 align-top">
                         <span className="font-bold">{it.name}</span>
                       </td>
-                      <td className="py-1 text-right align-top whitespace-nowrap">
+                      <td className="py-0.5 text-right align-top whitespace-nowrap">
                         {Number(it.quantity || 0).toLocaleString('id-ID', { minimumFractionDigits: 2 })}{' '}
                         <span className="font-semibold">{it.unit_name}</span>
                       </td>
-                      <td className="py-1 text-right align-top whitespace-nowrap">
+                      <td className="py-0.5 text-right align-top whitespace-nowrap">
                         {fmt(it.unit_price)}
                       </td>
                       {template.showDiscountCol && (
-                        <td className="py-1 text-right align-top whitespace-nowrap">
+                        <td className="py-0.5 text-right align-top whitespace-nowrap">
                           {discountPct > 0 ? `${discountPct}%` : '0,00'}
                         </td>
                       )}
-                      <td className="py-1 text-right align-top font-bold whitespace-nowrap">
+                      <td className="py-0.5 text-right align-top font-bold whitespace-nowrap">
                         {fmt(it.total_price)}
                       </td>
                     </tr>
@@ -248,7 +272,7 @@ export default function ContinuousFormInvoice({
 
             {/* Indikator Bersambung jika belum halaman terakhir */}
             {!isLastPage && (
-              <div className="py-2 text-right border-t border-b border-black text-[10px] italic text-slate-600">
+              <div className="py-1 text-right border-t border-b border-black text-[9px] italic text-slate-600">
                 (Bersambung ke Halaman {pageIdx + 2}...)
               </div>
             )}
@@ -257,23 +281,23 @@ export default function ContinuousFormInvoice({
             {/* FOOTER FAKTUR (Hanya di Halaman Terakhir, Sesuai Foto 1 & Foto 2)  */}
             {/* ================================================================= */}
             {isLastPage && (
-              <div className="pt-2 border-t border-black text-[10px] space-y-2">
-                <div className="grid grid-cols-12 gap-3">
+              <div className="pt-1.5 border-t border-black space-y-1.5" style={{ fontSize: '95%' }}>
+                <div className="grid grid-cols-12 gap-2">
                   {/* Kolom 1 (Kiri): Keterangan, Tanda Tangan & Terbilang */}
                   <div className="col-span-5 flex flex-col justify-between">
                     <div>
                       {/* Catatan / Keterangan: Hanya render jika tidak kosong (Sesuai Foto 4) */}
                       {notes && notes.trim().length > 0 && (
-                        <div className="mb-2">
+                        <div className="mb-1">
                           <span className="font-bold">Keterangan : </span>
                           <span>{notes.trim()}</span>
                         </div>
                       )}
 
-                      {/* Syarat & Ketentuan dari template: Hanya render jika tidak kosong */}
+                      {/* Syarat & Ketentuan dari template: Hanya render jika tidak kosong (Sesuai Foto 4) */}
                       {template.termsNotes && template.termsNotes.trim().length > 0 && (
-                        <div className="mb-2 text-[9px] text-slate-700 whitespace-pre-line leading-relaxed">
-                          <span className="font-bold">Syarat & Ketentuan:</span>
+                        <div className="mb-1 text-slate-700 whitespace-pre-line leading-relaxed" style={{ fontSize: '90%' }}>
+                          <span className="font-bold">Syarat &amp; Ketentuan:</span>
                           <br />
                           {template.termsNotes.trim()}
                         </div>
@@ -281,28 +305,28 @@ export default function ContinuousFormInvoice({
                     </div>
 
                     {/* Tanda Tangan: Cukup 2 Kolom (Hormat Kami & Penerima) Sesuai Foto 1 & 2 */}
-                    <div className="grid grid-cols-2 gap-4 text-center pt-2">
+                    <div className="grid grid-cols-2 gap-4 text-center pt-1">
                       <div>
                         <p className="font-bold">{template.signerLeft || 'Hormat Kami'}</p>
-                        <div className="h-10 sm:h-12"></div>
+                        <div className="h-8 sm:h-9"></div>
                         <p className="border-t border-dotted border-black pt-0.5">(....................)</p>
                       </div>
                       <div>
                         <p className="font-bold">{template.signerRight || 'Penerima'}</p>
-                        <div className="h-10 sm:h-12"></div>
+                        <div className="h-8 sm:h-9"></div>
                         <p className="border-t border-dotted border-black pt-0.5">(....................)</p>
                       </div>
                     </div>
 
                     {/* Terbilang Huruf Rupiah */}
-                    <div className="pt-2 italic text-[9px] text-slate-800">
+                    <div className="pt-1 italic text-slate-800" style={{ fontSize: '90%' }}>
                       <strong>Terbilang : </strong>
                       <span className="capitalize">{angkaTerbilang(grandTotal)}</span>
                     </div>
                   </div>
 
                   {/* Kolom 2 (Tengah): Detail Potongan & Pajak */}
-                  <div className="col-span-3 space-y-1 text-right pr-2 border-r border-dashed border-slate-300">
+                  <div className="col-span-3 space-y-0.5 text-right pr-2 border-r border-dashed border-slate-300">
                     <div className="flex justify-between">
                       <span className="text-slate-600">Jml Item :</span>
                       <strong>{Number(totalItemQty).toLocaleString('id-ID', { minimumFractionDigits: 2 })}</strong>
@@ -319,19 +343,19 @@ export default function ContinuousFormInvoice({
                       <span className="text-slate-600">Biaya Lain :</span>
                       <span>0,00</span>
                     </div>
-                    <div className="flex justify-between pt-1 border-t border-dashed border-slate-300">
+                    <div className="flex justify-between pt-0.5 border-t border-dashed border-slate-300">
                       <span className="text-slate-600">Tanggal Jt :</span>
                       <strong>{dueDate}</strong>
                     </div>
                   </div>
 
                   {/* Kolom 3 (Kanan): Ringkasan Finansial & Total Akhir */}
-                  <div className="col-span-4 space-y-1 text-right">
+                  <div className="col-span-4 space-y-0.5 text-right">
                     <div className="flex justify-between">
                       <span className="text-slate-600">Sub Total :</span>
                       <span>{fmt(grandTotal)}</span>
                     </div>
-                    <div className="flex justify-between text-xs font-black">
+                    <div className="flex justify-between font-black" style={{ fontSize: '110%' }}>
                       <span>Total Akhir :</span>
                       <span>{fmt(grandTotal)}</span>
                     </div>
