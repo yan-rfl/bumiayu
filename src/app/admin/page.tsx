@@ -1193,7 +1193,7 @@ export default function AdminDashboardPage() {
           <button
             onClick={() => router.push('/admin/settings')}
             className="h-8 px-2.5 sm:px-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-            title="Buka Pengaturan Sistem, Template Faktur IPOS5 & Desktop App"
+            title="Buka Pengaturan Sistem & Desain Faktur"
           >
             <Settings className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
             <span className="hidden sm:inline">Pengaturan</span>
