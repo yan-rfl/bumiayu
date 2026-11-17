@@ -218,8 +218,6 @@ export default function SearchableStoreSelect({
                       {showCreditDetails && (
                         <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                           <span>TOP: {store.top_days ? `${store.top_days} Hari` : 'Tunai'}</span>
-                          <span>•</span>
-                          <span>Plafon: Rp {Number(store.credit_limit || 0).toLocaleString('id-ID')}</span>
                           {Number(store.current_debt || 0) > 0 && (
                             <>
                               <span>•</span>

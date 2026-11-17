@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const {
       sku,
       name,
-      category = 'Charm',
+      category = 'Umum',
       base_unit = 'PCS',
       units, // array of { unit_name, conversion_qty, purchase_price, price_grosir, price_ecer }
       initial_stock = 0, // dalam PCS
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       .insert({
         sku: cleanSku,
         name: cleanName,
-        category: category || 'Charm',
+        category: category || 'Umum',
         base_unit: base_unit || 'PCS',
         is_active: true,
       })

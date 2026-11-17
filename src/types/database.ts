@@ -25,7 +25,7 @@ export interface Store {
   address: string;
   zone_code: string;
   top_days: number; // 0, 7, 14
-  credit_limit: number;
+  credit_limit?: number;
   current_debt: number;
   is_locked: boolean;
   created_by?: string;

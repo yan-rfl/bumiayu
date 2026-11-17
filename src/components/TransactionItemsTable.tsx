@@ -13,6 +13,7 @@ export interface TransactionItemRow {
   quantity: number;
   conversion_qty: number;
   unit_price: number;
+  discount_percent?: number; // Persentase diskon per baris (0 - 100%)
   total_price: number;
 }
 
@@ -83,6 +84,7 @@ export default function TransactionItemsTable({
       quantity: 1,
       conversion_qty: convQty,
       unit_price: defaultPrice,
+      discount_percent: 0,
       total_price: defaultPrice * 1,
     };
 
@@ -95,6 +97,13 @@ export default function TransactionItemsTable({
   const handleRemoveRow = (index: number) => {
     const updated = items.filter((_, i) => i !== index);
     onChange(updated);
+  };
+
+  // Helper hitung subtotal baris setelah diskon
+  const calcRowSubtotal = (qty: number, price: number, discountPct: number = 0) => {
+    const gross = qty * price;
+    const factor = Math.max(0, 1 - (discountPct || 0) / 100);
+    return Math.round(gross * factor);
   };
 
   // Ubah produk pada baris tertentu
@@ -117,6 +126,7 @@ export default function TransactionItemsTable({
 
     const updated = [...items];
     const currentQty = updated[index].quantity || 1;
+    const currentDisc = updated[index].discount_percent || 0;
     updated[index] = {
       ...updated[index],
       product_id: prod.id,
@@ -126,7 +136,7 @@ export default function TransactionItemsTable({
       unit_name: defaultUnit.unit_name,
       conversion_qty: convQty,
       unit_price: defaultPrice,
-      total_price: currentQty * defaultPrice,
+      total_price: calcRowSubtotal(currentQty, defaultPrice, currentDisc),
     };
     onChange(updated);
   };
@@ -144,13 +154,15 @@ export default function TransactionItemsTable({
       : row.unit_price;
 
     const updated = [...items];
+    const currentDisc = updated[index].discount_percent || 0;
+    const finalPrice = autoPrice > 0 ? autoPrice : updated[index].unit_price;
     updated[index] = {
       ...updated[index],
       unit_name: newUnitName,
       product_unit_id: unitObj?.id || updated[index].product_unit_id,
       conversion_qty: convQty,
-      unit_price: autoPrice > 0 ? autoPrice : updated[index].unit_price,
-      total_price: updated[index].quantity * (autoPrice > 0 ? autoPrice : updated[index].unit_price),
+      unit_price: finalPrice,
+      total_price: calcRowSubtotal(updated[index].quantity, finalPrice, currentDisc),
     };
     onChange(updated);
   };
@@ -159,10 +171,11 @@ export default function TransactionItemsTable({
   const handleChangeQty = (index: number, newQty: number) => {
     const q = Math.max(1, newQty || 1);
     const updated = [...items];
+    const currentDisc = updated[index].discount_percent || 0;
     updated[index] = {
       ...updated[index],
       quantity: q,
-      total_price: q * updated[index].unit_price,
+      total_price: calcRowSubtotal(q, updated[index].unit_price, currentDisc),
     };
     onChange(updated);
   };
@@ -171,10 +184,23 @@ export default function TransactionItemsTable({
   const handleChangePrice = (index: number, newPrice: number) => {
     const p = Math.max(0, newPrice || 0);
     const updated = [...items];
+    const currentDisc = updated[index].discount_percent || 0;
     updated[index] = {
       ...updated[index],
       unit_price: p,
-      total_price: updated[index].quantity * p,
+      total_price: calcRowSubtotal(updated[index].quantity, p, currentDisc),
+    };
+    onChange(updated);
+  };
+
+  // Ubah Diskon (%)
+  const handleChangeDiscount = (index: number, newDiscount: number) => {
+    const d = Math.min(100, Math.max(0, newDiscount || 0));
+    const updated = [...items];
+    updated[index] = {
+      ...updated[index],
+      discount_percent: d,
+      total_price: calcRowSubtotal(updated[index].quantity, updated[index].unit_price, d),
     };
     onChange(updated);
   };
@@ -273,13 +299,14 @@ export default function TransactionItemsTable({
                 <th className="py-2.5 px-3 min-w-[200px]">Nama Produk</th>
                 <th className="py-2.5 px-3 min-w-[170px] text-center">Quantity & Satuan</th>
                 <th className="py-2.5 px-3 min-w-[130px] text-right">Harga Satuan (Rp)</th>
+                <th className="py-2.5 px-3 min-w-[100px] text-center">Diskon (%)</th>
                 <th className="py-2.5 px-3 min-w-[130px] text-right">Subtotal (Rp)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-xs text-slate-400 italic">
+                  <td colSpan={7} className="py-8 text-center text-xs text-slate-400 italic">
                     Belum ada baris produk. Gunakan pencarian di atas untuk menambahkan produk ke tabel.
                   </td>
                 </tr>
@@ -302,7 +329,7 @@ export default function TransactionItemsTable({
                           onClick={() => handleRemoveRow(idx)}
                           disabled={disabled}
                           title="Hapus baris ini"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors disabled:opacity-40"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors disabled:opacity-40 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -382,9 +409,32 @@ export default function TransactionItemsTable({
                         />
                       </td>
 
-                      {/* Subtotal (Quantity * Harga Satuan) */}
+                      {/* Diskon (%) - (Poin 5: Persenan diskon per baris) */}
+                      <td className="py-2 px-3 text-center align-middle">
+                        <div className="flex items-center justify-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            value={row.discount_percent ?? 0}
+                            onChange={(e) => handleChangeDiscount(idx, Number(e.target.value))}
+                            disabled={disabled}
+                            placeholder="0"
+                            className="w-16 px-1.5 py-1 text-xs font-extrabold text-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-[11px] font-bold text-slate-400">%</span>
+                        </div>
+                      </td>
+
+                      {/* Subtotal (Quantity * Harga Satuan dipotong Diskon) */}
                       <td className="py-2 px-3 text-right align-middle font-extrabold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                        Rp {Number(row.total_price || 0).toLocaleString('id-ID')}
+                        <div>Rp {Number(row.total_price || 0).toLocaleString('id-ID')}</div>
+                        {Number(row.discount_percent || 0) > 0 && (
+                          <div className="text-[10px] text-rose-500 font-bold">
+                            Hemat Rp {(row.quantity * row.unit_price - row.total_price).toLocaleString('id-ID')} ({row.discount_percent}%)
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -402,7 +452,7 @@ export default function TransactionItemsTable({
                     <span>Akumulasi: <strong className="text-slate-900 dark:text-slate-100">{totalPcs.toLocaleString('id-ID')} PCS</strong></span>
                   </div>
                 </td>
-                <td colSpan={2} className="py-3 px-3 text-right text-slate-700 dark:text-slate-300 uppercase tracking-wider font-extrabold text-[11px]">
+                <td colSpan={3} className="py-3 px-3 text-right text-slate-700 dark:text-slate-300 uppercase tracking-wider font-extrabold text-[11px]">
                   Total {type === 'PURCHASE' ? 'Pembelian' : 'Penjualan'}:
                 </td>
                 <td className="py-3 px-4 text-right text-sm sm:text-base font-extrabold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">

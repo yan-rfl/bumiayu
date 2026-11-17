@@ -23,7 +23,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, owner_name, phone_wa, address, zone_code, top_days, credit_limit, created_by } = body;
+    const { name, owner_name, phone_wa, address, zone_code, top_days, created_by } = body;
 
     if (!name || !address || !zone_code) {
       return NextResponse.json(
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         address: address.trim(),
         zone_code: zone_code.trim().toUpperCase(),
         top_days: Number(top_days || 0),
-        credit_limit: Number(credit_limit || 0),
+        credit_limit: 0,
         current_debt: 0,
         is_locked: false,
         created_by: created_by || null,

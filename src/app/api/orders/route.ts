@@ -96,9 +96,6 @@ export async function POST(req: NextRequest) {
     } else if (unpaidOverdue && unpaidOverdue.length > 0) {
       orderStatus = 'PENDING_PAYMENT';
       holdReason = `Terdapat faktur lewat jatuh tempo (${unpaidOverdue.map((i) => i.invoice_no).join(', ')}).`;
-    } else if (store.credit_limit > 0 && Number(store.current_debt) + grandTotal > Number(store.credit_limit)) {
-      orderStatus = 'PENDING_PAYMENT';
-      holdReason = `Total pesanan melebihi sisa plafon kredit (Plafon: Rp ${Number(store.credit_limit).toLocaleString('id-ID')}).`;
     }
 
     // 4. Generate Nomor Pesanan SO-YYYYMMDD-XXXX

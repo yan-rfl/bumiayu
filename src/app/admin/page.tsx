@@ -51,7 +51,7 @@ import { ToastContainer, CustomModalDialog, ToastItem, ModalDialogConfig } from 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [adminUser, setAdminUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'review' | 'recap' | 'routes' | 'settlement' | 'finance' | 'inventory' | 'audit' | 'settings'>('review');
+  const [activeTab, setActiveTab] = useState<'review' | 'recap' | 'routes' | 'settlement' | 'finance' | 'inventory' | 'audit'>('review');
 
   // Toast & Custom Modal Dialog State
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -210,7 +210,7 @@ export default function AdminDashboardPage() {
   const [newProductForm, setNewProductForm] = useState({
     sku: '',
     name: '',
-    category: 'Charm',
+    category: 'Umum',
     initial_stock_pcs: 240,
   });
   const [productUnits, setProductUnits] = useState<Array<{
@@ -237,7 +237,6 @@ export default function AdminDashboardPage() {
     address: '',
     zone_code: '',
     top_days: 0,
-    credit_limit: 5000000,
   });
   const [savingNewStore, setSavingNewStore] = useState(false);
 
@@ -261,37 +260,6 @@ export default function AdminDashboardPage() {
   // Modal Edit Produk Master
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [savingEditProduct, setSavingEditProduct] = useState(false);
-
-  // State Manajemen Pengguna & Pengaturan (Settings)
-  const [usersList, setUsersList] = useState<any[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [adminProfileForm, setAdminProfileForm] = useState({
-    name: '',
-    username: '',
-    password: '',
-  });
-  const [savingAdminProfile, setSavingAdminProfile] = useState(false);
-
-  // Modal Tambah Sales Baru
-  const [isAddSalesModalOpen, setIsAddSalesModalOpen] = useState(false);
-  const [addSalesForm, setAddSalesForm] = useState({
-    name: '',
-    username: '',
-    password: '',
-    phone: '',
-  });
-  const [savingNewSales, setSavingNewSales] = useState(false);
-
-  // Modal Edit Sales
-  const [editingSalesUser, setEditingSalesUser] = useState<any | null>(null);
-  const [editSalesForm, setEditSalesForm] = useState({
-    name: '',
-    username: '',
-    password: '',
-    phone: '',
-    is_active: true,
-  });
-  const [savingEditSales, setSavingEditSales] = useState(false);
 
   // Cek Auth Session
   useEffect(() => {
@@ -329,7 +297,6 @@ export default function AdminDashboardPage() {
       await loadInventoryAndAudit();
       await loadOrders();
       await loadStores();
-      await loadUsers();
     }
     init();
   }, [router]);
@@ -345,8 +312,6 @@ export default function AdminDashboardPage() {
     editingProduct ||
     selectedInvoiceForSettlement ||
     isAddExpenseModalOpen ||
-    isAddSalesModalOpen ||
-    editingSalesUser ||
     modalDialog?.isOpen
   );
 
@@ -363,170 +328,6 @@ export default function AdminDashboardPage() {
       document.body.style.touchAction = '';
     };
   }, [isAnyModalOpen]);
-
-  // Load Pengguna untuk Pengaturan
-  const loadUsers = async () => {
-    setLoadingUsers(true);
-    try {
-      const res = await fetch('/api/admin/users');
-      const data = await res.json();
-      if (res.ok && data.users) {
-        setUsersList(data.users);
-        const currentAdmin = data.users.find((u: any) => u.id === adminUser?.id || u.role === 'owner');
-        if (currentAdmin) {
-          setAdminProfileForm((prev) => ({
-            ...prev,
-            name: currentAdmin.full_name || '',
-            username: currentAdmin.username || '',
-          }));
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load users:', err);
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  const handleSaveAdminProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adminUser?.id) {
-      showToast('Sesi login admin tidak ditemukan.', 'error');
-      return;
-    }
-    if (!adminProfileForm.name.trim() || !adminProfileForm.username.trim()) {
-      showToast('Nama Lengkap dan Username admin wajib diisi.', 'error');
-      return;
-    }
-    if (adminProfileForm.password && adminProfileForm.password.trim().length < 6) {
-      showToast('Password baru minimal 6 karakter.', 'error');
-      return;
-    }
-    setSavingAdminProfile(true);
-    try {
-      const res = await fetch(`/api/admin/users/${adminUser.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: adminProfileForm.name.trim(),
-          username: adminProfileForm.username.trim(),
-          password: adminProfileForm.password.trim() || undefined,
-          admin_id: adminUser.id,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showToast(data.error || 'Gagal memperbarui profil admin.', 'error');
-        return;
-      }
-      showToast('Profil admin berhasil diperbarui!', 'success');
-      setAdminProfileForm((prev) => ({ ...prev, password: '' }));
-      if (adminUser) {
-        const updatedUser = {
-          ...adminUser,
-          user_metadata: {
-            ...adminUser.user_metadata,
-            full_name: data.user.full_name,
-            username: data.user.username,
-          },
-        };
-        setAdminUser(updatedUser);
-        try {
-          localStorage.setItem('bumiayu_auth_user', JSON.stringify(updatedUser));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      await loadUsers();
-    } catch (err) {
-      console.error(err);
-      showToast('Terjadi kesalahan saat menyimpan profil admin.', 'error');
-    } finally {
-      setSavingAdminProfile(false);
-    }
-  };
-
-  const handleCreateSales = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!addSalesForm.name.trim() || !addSalesForm.username.trim() || !addSalesForm.password.trim()) {
-      showToast('Nama Lengkap, Username, dan Password wajib diisi.', 'error');
-      return;
-    }
-    if (addSalesForm.password.length < 6) {
-      showToast('Password minimal 6 karakter.', 'error');
-      return;
-    }
-    setSavingNewSales(true);
-    try {
-      const res = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: addSalesForm.name.trim(),
-          username: addSalesForm.username.trim(),
-          password: addSalesForm.password.trim(),
-          phone: addSalesForm.phone.trim() || undefined,
-          role: 'sales',
-          admin_id: adminUser?.id,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showToast(data.error || 'Gagal menambahkan akun sales.', 'error');
-        return;
-      }
-      showToast(`Akun sales @${data.user.username} berhasil didaftarkan!`, 'success');
-      setIsAddSalesModalOpen(false);
-      setAddSalesForm({ name: '', username: '', password: '', phone: '' });
-      await loadUsers();
-    } catch (err) {
-      console.error(err);
-      showToast('Terjadi kesalahan saat mendaftarkan akun sales.', 'error');
-    } finally {
-      setSavingNewSales(false);
-    }
-  };
-
-  const handleUpdateSales = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingSalesUser) return;
-    if (!editSalesForm.name.trim() || !editSalesForm.username.trim()) {
-      showToast('Nama Lengkap dan Username sales wajib diisi.', 'error');
-      return;
-    }
-    if (editSalesForm.password && editSalesForm.password.trim().length < 6) {
-      showToast('Password baru minimal 6 karakter.', 'error');
-      return;
-    }
-    setSavingEditSales(true);
-    try {
-      const res = await fetch(`/api/admin/users/${editingSalesUser.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editSalesForm.name.trim(),
-          username: editSalesForm.username.trim(),
-          password: editSalesForm.password.trim() || undefined,
-          phone: editSalesForm.phone.trim() || undefined,
-          is_active: editSalesForm.is_active,
-          admin_id: adminUser?.id,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showToast(data.error || 'Gagal memperbarui akun sales.', 'error');
-        return;
-      }
-      showToast(`Akun sales @${data.user.username} berhasil diperbarui!`, 'success');
-      setEditingSalesUser(null);
-      await loadUsers();
-    } catch (err) {
-      console.error(err);
-      showToast('Terjadi kesalahan saat menyimpan perubahan akun sales.', 'error');
-    } finally {
-      setSavingEditSales(false);
-    }
-  };
 
   // Load Toko Master untuk Pembelian
   const loadStores = async () => {
@@ -979,18 +780,27 @@ export default function AdminDashboardPage() {
   const openEditModal = (order: any) => {
     setEditingOrder(order);
     setEditItems(
-      (order.items || []).map((it: any) => ({
-        id: it.id,
-        product_id: it.product_id,
-        product_unit_id: it.product_unit_id,
-        sku: it.product?.sku || '',
-        product_name: it.product?.name || 'Produk',
-        unit_name: it.unit_name,
-        quantity: it.quantity,
-        conversion_qty: it.conversion_qty || 1,
-        unit_price: it.unit_price,
-        total_price: it.total_price,
-      }))
+      (order.items || []).map((it: any) => {
+        const gross = Number(it.quantity || 1) * Number(it.unit_price || 0);
+        const subtotal = Number(it.total_price || gross);
+        const discountPct = gross > 0 && subtotal < gross
+          ? Math.round((1 - (subtotal / gross)) * 100 * 10) / 10
+          : 0;
+
+        return {
+          id: it.id,
+          product_id: it.product_id,
+          product_unit_id: it.product_unit_id,
+          sku: it.product?.sku || '',
+          product_name: it.product?.name || 'Produk',
+          unit_name: it.unit_name,
+          quantity: it.quantity,
+          conversion_qty: it.conversion_qty || 1,
+          unit_price: it.unit_price,
+          discount_percent: discountPct,
+          total_price: subtotal,
+        };
+      })
     );
     setAdminNotes(order.admin_notes || '');
   };
@@ -1185,7 +995,7 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({
           sku: cleanSku,
           name: newProductForm.name.trim(),
-          category: newProductForm.category.trim() || 'Charm',
+          category: newProductForm.category.trim() || 'Umum',
           base_unit: 'PCS',
           units: unitsToSubmit,
           initial_stock: Number(newProductForm.initial_stock_pcs) || 0,
@@ -1201,7 +1011,7 @@ export default function AdminDashboardPage() {
       setNewProductForm({
         sku: '',
         name: '',
-        category: 'Charm',
+        category: 'Umum',
         initial_stock_pcs: 240,
       });
       setProductUnits([
@@ -1236,7 +1046,6 @@ export default function AdminDashboardPage() {
           address: newStoreForm.address.trim(),
           zone_code: newStoreForm.zone_code.trim().toUpperCase(),
           top_days: Number(newStoreForm.top_days) || 0,
-          credit_limit: Number(newStoreForm.credit_limit) || 0,
           created_by: adminUser?.id,
         }),
       });
@@ -1256,7 +1065,6 @@ export default function AdminDashboardPage() {
         address: '',
         zone_code: '',
         top_days: 0,
-        credit_limit: 5000000,
       });
     } catch (err: any) {
       showToast(err.message || 'Gagal mendaftarkan toko baru', 'error');
@@ -1380,6 +1188,15 @@ export default function AdminDashboardPage() {
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          <button
+            onClick={() => router.push('/admin/settings')}
+            className="h-8 px-2.5 sm:px-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Buka Pengaturan Sistem, Template Faktur IPOS5 & Desktop App"
+          >
+            <Settings className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+            <span className="hidden sm:inline">Pengaturan</span>
           </button>
 
           <button
@@ -1511,20 +1328,6 @@ export default function AdminDashboardPage() {
           >
             <ShieldCheck className="w-4 h-4 shrink-0" />
             <span>Audit Logs</span>
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('settings');
-              loadUsers();
-            }}
-            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center ${
-              activeTab === 'settings'
-                ? 'border-emerald-600 text-emerald-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Settings className="w-4 h-4 shrink-0" />
-            <span>Pengaturan</span>
           </button>
         </div>
 
@@ -1882,7 +1685,7 @@ export default function AdminDashboardPage() {
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 uppercase text-[11px]">
                       <th className="p-3">Kode SKU</th>
-                      <th className="p-3">Nama Produk Charm</th>
+                      <th className="p-3">Nama Produk</th>
                       <th className="p-3 text-center">Total Karton (KTN)</th>
                       <th className="p-3 text-center">Total Bendit (BD)</th>
                       <th className="p-3 text-center">Total Ecer (PCS)</th>
@@ -2300,10 +2103,10 @@ export default function AdminDashboardPage() {
               )}
             </div>
 
-            {/* TABEL STATUS LIMIT KREDIT & SALDO TOKO */}
+            {/* TABEL STATUS SALDO PIUTANG & GEMBOK TOKO */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
               <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 border-b pb-2 dark:border-slate-800">
-                Plafon Limit Kredit & Status Gembok Toko
+                Status Piutang & Gembok Toko
               </h4>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
@@ -2312,7 +2115,6 @@ export default function AdminDashboardPage() {
                       <th className="p-2.5">Kode Toko</th>
                       <th className="p-2.5">Nama Toko</th>
                       <th className="p-2.5">Wilayah</th>
-                      <th className="p-2.5 text-right">Plafon Kredit (Limit)</th>
                       <th className="p-2.5 text-right">Saldo Piutang Berjalan</th>
                       <th className="p-2.5 text-center">Status Gembok</th>
                     </tr>
@@ -2323,9 +2125,6 @@ export default function AdminDashboardPage() {
                         <td className="p-2.5 font-mono font-bold text-emerald-600">{st.code}</td>
                         <td className="p-2.5 font-bold">{st.name}</td>
                         <td className="p-2.5">{st.zone_code}</td>
-                        <td className="p-2.5 text-right font-semibold">
-                          {st.credit_limit > 0 ? `Rp ${Number(st.credit_limit).toLocaleString('id-ID')}` : 'Wajib Tunai'}
-                        </td>
                         <td className="p-2.5 text-right font-extrabold text-slate-900 dark:text-slate-100">
                           Rp {Number(st.current_debt || 0).toLocaleString('id-ID')}
                         </td>
@@ -2446,7 +2245,7 @@ export default function AdminDashboardPage() {
                   <p className="text-lg font-extrabold text-rose-500 mt-1">
                     Rp {Number(pnlData.total_cogs).toLocaleString('id-ID')}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Harga modal pabrik Charm</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Harga modal pokok per PCS</p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
@@ -2672,202 +2471,6 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         )}
-
-        {/* TAB 8: PENGATURAN SISTEM & PENGGUNA */}
-        {activeTab === 'settings' && (
-          <div className="space-y-5">
-            {/* 1. PENGATURAN PROFIL ADMIN */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
-              <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 bg-slate-50/50 dark:bg-slate-950/30">
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-sm sm:text-base text-slate-800 dark:text-slate-100">
-                    Pengaturan Profil Admin / Owner
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Perbarui nama lengkap, username login, atau ganti kata sandi akun administrator.
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleSaveAdminProfile} className="p-4 sm:p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Nama Lengkap Admin <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={adminProfileForm.name}
-                      onChange={(e) => setAdminProfileForm({ ...adminProfileForm, name: e.target.value })}
-                      placeholder="cth: Owner BumiAyu"
-                      className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Username Login <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={adminProfileForm.username}
-                      onChange={(e) => setAdminProfileForm({ ...adminProfileForm, username: e.target.value })}
-                      placeholder="cth: admin"
-                      className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-semibold"
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1">Username dipakai untuk login ke sistem.</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Password Baru (Opsional)
-                    </label>
-                    <input
-                      type="password"
-                      value={adminProfileForm.password}
-                      onChange={(e) => setAdminProfileForm({ ...adminProfileForm, password: e.target.value })}
-                      placeholder="Kosongkan jika tidak ingin diubah"
-                      className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1">Minimal 6 karakter jika ingin mengganti.</p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="submit"
-                    disabled={savingAdminProfile}
-                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>{savingAdminProfile ? 'Menyimpan...' : 'Simpan Profil Admin'}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            {/* 2. MANAJEMEN PENGGUNA SALES LAPANGAN */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
-              <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-950/30">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
-                    <UserPlus className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-sm sm:text-base text-slate-800 dark:text-slate-100">
-                      Manajemen Akun Sales Lapangan
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Kelola daftar username, nama, dan kata sandi tim sales untuk akses aplikasi lapangan.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAddSalesForm({ name: '', username: '', password: '', phone: '' });
-                    setIsAddSalesModalOpen(true);
-                  }}
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  + Tambah Sales Baru
-                </button>
-              </div>
-
-              {/* Tampilan Desktop Table & Mobile Card */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                      <th className="py-3 px-4">Nama Lengkap</th>
-                      <th className="py-3 px-4">Username Login</th>
-                      <th className="py-3 px-4">No. Telp / WhatsApp</th>
-                      <th className="py-3 px-4 text-center">Status Akun</th>
-                      <th className="py-3 px-4 text-center w-28">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {loadingUsers ? (
-                      <tr>
-                        <td colSpan={5} className="p-8 text-center text-slate-500">
-                          Memuat data pengguna sales...
-                        </td>
-                      </tr>
-                    ) : (
-                      (() => {
-                        const salesOnly = usersList.filter((u) => u.role === 'sales');
-                        if (salesOnly.length === 0) {
-                          return (
-                            <tr>
-                              <td colSpan={5} className="p-8 text-center text-slate-500">
-                                Belum ada akun sales. Klik tombol &ldquo;+ Tambah Sales Baru&rdquo; untuk mendaftarkan.
-                              </td>
-                            </tr>
-                          );
-                        }
-                        return salesOnly.map((sales) => (
-                          <tr key={sales.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                            <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-black flex items-center justify-center shrink-0">
-                                  {sales.full_name ? sales.full_name.charAt(0).toUpperCase() : 'S'}
-                                </div>
-                                <span>{sales.full_name}</span>
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-4 font-mono font-semibold text-slate-600 dark:text-slate-300">
-                              @{sales.username}
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
-                              {sales.phone || '-'}
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-extrabold border ${
-                                  sales.is_active !== false
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800'
-                                    : 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800'
-                                }`}
-                              >
-                                {sales.is_active !== false ? 'Aktif' : 'Nonaktif'}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingSalesUser(sales);
-                                  setEditSalesForm({
-                                    name: sales.full_name || '',
-                                    username: sales.username || '',
-                                    password: '',
-                                    phone: sales.phone || '',
-                                    is_active: sales.is_active !== false,
-                                  });
-                                }}
-                                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1 mx-auto transition-colors cursor-pointer"
-                              >
-                                <Edit className="w-3.5 h-3.5 text-emerald-600" />
-                                Edit
-                              </button>
-                            </td>
-                          </tr>
-                        ));
-                      })()
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* MODAL EDIT ITEM ORDER MODEL TABEL (SESUAI PERMINTAAN USER) */}
@@ -2907,9 +2510,6 @@ export default function AdminDashboardPage() {
                 <span className="text-[11px] text-slate-400 block font-semibold">Status Pembayaran / TOP:</span>
                 <span className="font-bold text-slate-900 dark:text-slate-100">
                   TOP {editingOrder.store?.top_days ? `${editingOrder.store.top_days} Hari` : 'Tunai'}
-                </span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-semibold">
-                  Plafon: Rp {Number(editingOrder.store?.credit_limit || 0).toLocaleString('id-ID')}
                 </span>
               </div>
             </div>
@@ -3017,7 +2617,7 @@ export default function AdminDashboardPage() {
                     type="text"
                     value={purchaseForm.notes}
                     onChange={(e) => setPurchaseForm({ ...purchaseForm, notes: e.target.value })}
-                    placeholder="cth: DO Pabrik Charm No. 9812..."
+                    placeholder="cth: DO Pabrik / Supplier No. 9812..."
                     className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
                   />
                 </div>
@@ -3290,20 +2890,6 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              <div className="pt-1 border-t dark:border-slate-800">
-                <label className="text-xs font-bold block mb-1 text-slate-800 dark:text-slate-200">
-                  Plafon Kredit (Rp)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="500000"
-                  value={newStoreForm.credit_limit}
-                  onChange={(e) => setNewStoreForm({ ...newStoreForm, credit_limit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-              </div>
-
               <div className="flex items-center justify-end gap-2 pt-3 border-t dark:border-slate-800">
                 <button
                   type="button"
@@ -3492,7 +3078,7 @@ export default function AdminDashboardPage() {
                     type="text"
                     value={newProductForm.category}
                     onChange={(e) => setNewProductForm({ ...newProductForm, category: e.target.value })}
-                    placeholder="cth: Charm / MamyPoko"
+                    placeholder="cth: Kategori / Merek"
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl"
                   />
                 </div>
@@ -3506,7 +3092,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="text"
                     required
-                    placeholder="cth: Charm Extra Maxi Wing 28cm"
+                    placeholder="cth: Sabun Mandi Herbal 100gr / Beras 5kg"
                     value={newProductForm.name}
                     onChange={(e) => setNewProductForm({ ...newProductForm, name: e.target.value })}
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl"
@@ -3662,39 +3248,41 @@ export default function AdminDashboardPage() {
 
       {/* MODAL EDIT MASTER PRODUK */}
       {editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="my-auto w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+          <div className="my-auto w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3 dark:border-slate-800">
               <div>
-                <h3 className="font-bold text-base">Edit Master Produk</h3>
-                <p className="text-xs text-slate-500">Ubah kode unik (SKU), nama, dan stok fisik gudang.</p>
+                <h3 className="font-extrabold text-base text-slate-800 dark:text-slate-100">Edit Master Produk</h3>
+                <p className="text-xs text-slate-500">Ubah kode SKU, nama, stok fisik, dan harga jual per tingkat satuan.</p>
               </div>
-              <button onClick={() => setEditingProduct(null)} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setEditingProduct(null)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveEditProduct} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold mb-1">Kode Unik (SKU)</label>
-                <input
-                  type="text"
-                  required
-                  value={editingProduct.sku}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border rounded-xl font-mono uppercase"
-                />
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold mb-1">Kode Unik (SKU)</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingProduct.sku}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border rounded-xl font-mono uppercase font-bold"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold mb-1">Nama Produk</label>
-                <input
-                  type="text"
-                  required
-                  value={editingProduct.name}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border rounded-xl"
-                />
+                <div>
+                  <label className="block text-xs font-bold mb-1">Nama Produk</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingProduct.name}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border rounded-xl font-bold"
+                  />
+                </div>
               </div>
 
               <div>
@@ -3704,22 +3292,161 @@ export default function AdminDashboardPage() {
                   min="0"
                   value={editingProduct.stock_base_unit}
                   onChange={(e) => setEditingProduct({ ...editingProduct, stock_base_unit: Number(e.target.value) })}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border rounded-xl font-extrabold"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border rounded-xl font-extrabold text-emerald-700 dark:text-emerald-400"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t">
+              {/* EDIT DAFTAR SATUAN & HARGA JUAL (Requirement 4) */}
+              <div className="space-y-3 pt-2 border-t dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Tingkat Satuan & Harga Jual Produk
+                    </label>
+                    <p className="text-[11px] text-slate-500">
+                      Ubah nama satuan, rasio konversi ke PCS, dan harga jual grosir / eceran per satuan.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const curUnits = editingProduct.units || [];
+                      const newUnit = {
+                        id: 'temp-' + Date.now(),
+                        product_id: editingProduct.id,
+                        unit_name: 'PACK',
+                        conversion_qty: 1,
+                        price_grosir: 0,
+                        price_ecer: 0,
+                        purchase_price: 0,
+                        is_default_sales: false,
+                      };
+                      setEditingProduct({
+                        ...editingProduct,
+                        units: [...curUnits, newUnit],
+                      });
+                    }}
+                    className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    + Tambah Satuan
+                  </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {(editingProduct.units || []).map((u: any, uIdx: number) => (
+                    <div
+                      key={u.id || uIdx}
+                      className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center shrink-0">
+                            {uIdx + 1}
+                          </span>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            Satuan:
+                          </span>
+                          <input
+                            type="text"
+                            required
+                            value={u.unit_name}
+                            onChange={(e) => {
+                              const updatedUnits = [...editingProduct.units];
+                              updatedUnits[uIdx] = { ...updatedUnits[uIdx], unit_name: e.target.value.toUpperCase() };
+                              setEditingProduct({ ...editingProduct, units: updatedUnits });
+                            }}
+                            className="w-20 px-2 py-1 text-xs font-extrabold uppercase rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                            placeholder="KTN"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="text-slate-500 font-semibold">1 {u.unit_name || 'Satuan'} =</span>
+                          <input
+                            type="number"
+                            min="1"
+                            required
+                            value={u.conversion_qty}
+                            onChange={(e) => {
+                              const updatedUnits = [...editingProduct.units];
+                              updatedUnits[uIdx] = { ...updatedUnits[uIdx], conversion_qty: Number(e.target.value) || 1 };
+                              setEditingProduct({ ...editingProduct, units: updatedUnits });
+                            }}
+                            className="w-16 px-2 py-1 text-xs font-bold text-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                          />
+                          <span className="text-slate-500 font-bold">PCS</span>
+
+                          {(editingProduct.units || []).length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updatedUnits = editingProduct.units.filter((_: any, idx: number) => idx !== uIdx);
+                                setEditingProduct({ ...editingProduct, units: updatedUnits });
+                              }}
+                              className="p-1 text-slate-400 hover:text-rose-600 ml-2 cursor-pointer"
+                              title="Hapus Satuan ini"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
+                            Harga Jual Grosir (Rp) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            required
+                            value={u.price_grosir || 0}
+                            onChange={(e) => {
+                              const updatedUnits = [...editingProduct.units];
+                              updatedUnits[uIdx] = { ...updatedUnits[uIdx], price_grosir: Number(e.target.value) || 0 };
+                              setEditingProduct({ ...editingProduct, units: updatedUnits });
+                            }}
+                            className="w-full px-2.5 py-1 text-xs font-extrabold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
+                            Harga Jual Ecer (Rp) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            required
+                            value={u.price_ecer || 0}
+                            onChange={(e) => {
+                              const updatedUnits = [...editingProduct.units];
+                              updatedUnits[uIdx] = { ...updatedUnits[uIdx], price_ecer: Number(e.target.value) || 0 };
+                              setEditingProduct({ ...editingProduct, units: updatedUnits });
+                            }}
+                            className="w-full px-2.5 py-1 text-xs font-extrabold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setEditingProduct(null)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-xs transition-colors"
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={savingEditProduct}
-                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs"
+                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs cursor-pointer"
                 >
                   {savingEditProduct ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>
@@ -3919,231 +3646,6 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* MODAL TAMBAH SALES BARU */}
-      {isAddSalesModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
-          <div className="my-auto w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
-                  <UserPlus className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-base text-slate-800 dark:text-slate-100">
-                    Tambah Akun Sales Lapangan
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Akun ini dapat langsung login ke aplikasi PWA sales.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddSalesModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSales} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Nama Lengkap Sales <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={addSalesForm.name}
-                  onChange={(e) => setAddSalesForm({ ...addSalesForm, name: e.target.value })}
-                  placeholder="cth: Budi Santoso"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Username Login <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={addSalesForm.username}
-                  onChange={(e) => setAddSalesForm({ ...addSalesForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '') })}
-                  placeholder="cth: budi_sales"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-semibold"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Huruf kecil, angka, titik, atau underscore tanpa spasi.</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Password <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={addSalesForm.password}
-                  onChange={(e) => setAddSalesForm({ ...addSalesForm, password: e.target.value })}
-                  placeholder="Minimal 6 karakter"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  No. Telepon / WhatsApp (Opsional)
-                </label>
-                <input
-                  type="tel"
-                  value={addSalesForm.phone}
-                  onChange={(e) => setAddSalesForm({ ...addSalesForm, phone: e.target.value })}
-                  placeholder="cth: 081234567890"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl"
-                />
-              </div>
-
-              {/* Footer Aksi Modal (Tombol Batal Warna Merah) */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsAddSalesModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-xs transition-colors cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingNewSales}
-                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  {savingNewSales ? 'Menyimpan...' : 'Simpan Akun Sales'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL EDIT SALES */}
-      {editingSalesUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
-          <div className="my-auto w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <Edit className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-base text-slate-800 dark:text-slate-100">
-                    Edit Akun Sales: @{editingSalesUser.username}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Perbarui identitas, username, password, atau status akun sales.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingSalesUser(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateSales} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Nama Lengkap Sales <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editSalesForm.name}
-                  onChange={(e) => setEditSalesForm({ ...editSalesForm, name: e.target.value })}
-                  placeholder="cth: Budi Santoso"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Username Login <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editSalesForm.username}
-                  onChange={(e) => setEditSalesForm({ ...editSalesForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '') })}
-                  placeholder="cth: budi_sales"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Password Baru (Opsional)
-                </label>
-                <input
-                  type="password"
-                  value={editSalesForm.password}
-                  onChange={(e) => setEditSalesForm({ ...editSalesForm, password: e.target.value })}
-                  placeholder="Kosongkan jika tidak ingin diubah"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Minimal 6 karakter jika ingin mengganti kata sandi.</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  No. Telepon / WhatsApp (Opsional)
-                </label>
-                <input
-                  type="tel"
-                  value={editSalesForm.phone}
-                  onChange={(e) => setEditSalesForm({ ...editSalesForm, phone: e.target.value })}
-                  placeholder="cth: 081234567890"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Status Akun
-                </label>
-                <select
-                  value={editSalesForm.is_active ? 'true' : 'false'}
-                  onChange={(e) => setEditSalesForm({ ...editSalesForm, is_active: e.target.value === 'true' })}
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-semibold cursor-pointer"
-                >
-                  <option value="true">Aktif (Bisa Login & Input Order)</option>
-                  <option value="false">Nonaktif (Akses Dibekukan)</option>
-                </select>
-              </div>
-
-              {/* Footer Aksi Modal (Tombol Batal Warna Merah) */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setEditingSalesUser(null)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-xs transition-colors cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingEditSales}
-                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  {savingEditSales ? 'Menyimpan...' : 'Simpan Perubahan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
       {/* TOAST CONTAINER & CUSTOM MODAL DIALOG */}
       <ToastContainer
         toasts={toasts}

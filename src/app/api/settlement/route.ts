@@ -172,10 +172,7 @@ export async function POST(req: NextRequest) {
     if (invoice.store) {
       const currentDebt = Number(invoice.store.current_debt || 0);
       const newDebt = Math.max(0, currentDebt - payAmount);
-      const creditLimit = Number(invoice.store.credit_limit || 0);
-
-      // Jika hutang sudah kembali di bawah limit, buka kunci toko
-      const isLocked = creditLimit > 0 ? newDebt > creditLimit : false;
+      const isLocked = newDebt === 0 ? false : Boolean(invoice.store.is_locked);
 
       await supabase
         .from('stores')

@@ -41,7 +41,6 @@ interface StoreItem {
   address: string;
   zone_code: string;
   top_days: number;
-  credit_limit: number;
   current_debt: number;
   is_locked: boolean;
 }
@@ -120,7 +119,6 @@ export default function SalesPWAPage() {
     address: '',
     zone_code: '',
     top_days: 0,
-    credit_limit: 0,
   });
   const [savingNewStore, setSavingNewStore] = useState(false);
 
@@ -547,7 +545,6 @@ export default function SalesPWAPage() {
         address: '',
         zone_code: '',
         top_days: 0,
-        credit_limit: 0,
       });
 
       // Reload master stores dan otomatis pilih toko baru tsb
@@ -696,7 +693,7 @@ export default function SalesPWAPage() {
   }, [stores]);
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 pb-28">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 pb-16">
       {/* HEADER SALES */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-3">
@@ -885,15 +882,9 @@ export default function SalesPWAPage() {
                   <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                     TOP: {selectedStore.top_days === 0 ? 'Tunai / COD (0-day)' : `${selectedStore.top_days} Hari`}
                   </span>
-                  {selectedStore.is_locked ? (
+                  {selectedStore.is_locked && (
                     <span className="px-2.5 py-1 rounded-xl bg-rose-100 text-rose-800 font-bold flex items-center gap-1">
                       <AlertTriangle className="w-3.5 h-3.5" /> Akun Terkunci (Order Tertahan)
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold">
-                      {selectedStore.credit_limit > 0
-                        ? `Plafon: Rp ${Number(selectedStore.credit_limit).toLocaleString('id-ID')}`
-                        : 'Khusus Tunai'}
                     </span>
                   )}
                 </div>
@@ -901,12 +892,12 @@ export default function SalesPWAPage() {
             )}
           </div>
 
-          {/* KARTU 2: KATALOG PRODUK CHARM (TANPA JADWAL KIRIM) */}
+          {/* KARTU 2: KATALOG PRODUK (TANPA JADWAL KIRIM) */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                 <ShoppingBag className="w-4 h-4 text-emerald-600" />
-                2. Katalog Produk Charm & Satuan
+                2. Katalog Produk & Satuan
               </h2>
               <span className="text-xs text-slate-400 font-semibold">
                 {filteredProducts.length} Varian
@@ -920,14 +911,14 @@ export default function SalesPWAPage() {
                 type="text"
                 value={searchProduct}
                 onChange={(e) => setSearchProduct(e.target.value)}
-                placeholder="Cari nama produk / kode SKU Charm..."
+                placeholder="Cari nama produk / kode SKU..."
                 className="w-full pl-10 pr-4 py-2.5 sm:py-3 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
               />
             </div>
 
             {loadingData ? (
               <div className="py-8 text-center text-xs text-slate-400">
-                Memuat katalog produk Charm...
+                Memuat katalog produk...
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400">
@@ -1055,29 +1046,27 @@ export default function SalesPWAPage() {
             )}
           </div>
 
-          {/* DOCKED BOTTOM BAR / STEP 1: TOMBOL SELESAIKAN PESANAN (MEMENUHI SELURUH SCREEN BAWAH) */}
+          {/* FOOTER RINGKASAN & TOMBOL SELESAIKAN PESANAN (MENEMPEL DI FOOTER HALAMAN, BUKAN FLOATING) */}
           {cart.length > 0 && (
-            <div className="fixed bottom-0 left-0 right-0 z-30 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-emerald-500/50 shadow-[0_-6px_20px_rgba(0,0,0,0.2)] px-4 py-3 sm:py-3.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-3">
-              <div className="max-w-2xl mx-auto w-full flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                    <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{totalItemCount} Item ({cart.length} macam)</span>
-                  </div>
-                  <div className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-400 truncate">
-                    Rp {cartTotal.toLocaleString('id-ID')}
-                  </div>
+            <div className="mt-5 p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 border-emerald-500 shadow-sm flex items-center justify-between gap-3 animate-in fade-in">
+              <div className="min-w-0">
+                <div className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{totalItemCount} Item ({cart.length} macam)</span>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsReviewOrderModalOpen(true)}
-                  className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/30 flex items-center gap-2 transition-all shrink-0 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Selesaikan Pesanan
-                </button>
+                <div className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-400 truncate">
+                  Rp {cartTotal.toLocaleString('id-ID')}
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setIsReviewOrderModalOpen(true)}
+                className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/30 flex items-center gap-2 transition-all shrink-0 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Selesaikan Pesanan
+              </button>
             </div>
           )}
         </div>
