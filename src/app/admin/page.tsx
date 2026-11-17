@@ -292,6 +292,31 @@ export default function AdminDashboardPage() {
         router.push('/');
         return;
       }
+
+      // Ambil profil terbaru dari tabel profiles untuk memastikan perubahan nama/username selalu tersinkronisasi
+      try {
+        const { data: dbProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', activeUser.id)
+          .maybeSingle();
+
+        if (dbProfile) {
+          activeUser = {
+            ...activeUser,
+            ...dbProfile,
+            user_metadata: {
+              ...(activeUser.user_metadata || {}),
+              full_name: dbProfile.full_name,
+              username: dbProfile.username,
+            },
+          };
+          localStorage.setItem('bumiayu_auth_user', JSON.stringify(activeUser));
+        }
+      } catch (e) {
+        console.error('Failed to sync profile from DB:', e);
+      }
+
       setAdminUser(activeUser);
       // Muat inventory fisik terlebih dahulu agar validasi stok instan & akurat
       await loadInventoryAndAudit();
@@ -299,6 +324,18 @@ export default function AdminDashboardPage() {
       await loadStores();
     }
     init();
+
+    // Dengarkan event storage agar perubahan nama admin di tab Pengaturan langsung terupdate
+    const handleStorageChange = () => {
+      try {
+        const saved = localStorage.getItem('bumiayu_auth_user');
+        if (saved) {
+          setAdminUser(JSON.parse(saved));
+        }
+      } catch {}
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [router]);
 
   // Lock scroll saat ada modal terbuka di mobile & desktop (Requirement 3)
@@ -1175,7 +1212,7 @@ export default function AdminDashboardPage() {
           <div>
             <h1 className="text-sm sm:text-base font-extrabold tracking-tight">BumiAyu | Panel Owner</h1>
             <p className="text-[11px] sm:text-xs text-slate-500">
-              Admin: <span className="font-semibold text-emerald-600">{adminUser?.user_metadata?.full_name || 'Owner'}</span>
+              Admin: <span className="font-semibold text-emerald-600">{adminUser?.full_name || adminUser?.user_metadata?.full_name || 'Owner'}</span>
             </p>
           </div>
         </div>
@@ -1409,7 +1446,7 @@ export default function AdminDashboardPage() {
                     title="Daftarkan Toko Pelanggan Baru Langsung"
                   >
                     <UserPlus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    + Tambah Toko Baru
+                    Tambah Toko Baru
                   </button>
 
                   <button
@@ -1419,7 +1456,7 @@ export default function AdminDashboardPage() {
                     title="Buat Faktur Penjualan Manual untuk Sales"
                   >
                     <ShoppingCart className="w-3.5 h-3.5" />
-                    + Buat Faktur Penjualan Baru
+                    Buat Faktur Penjualan Baru
                   </button>
 
                   <button
@@ -1429,7 +1466,7 @@ export default function AdminDashboardPage() {
                     title="Catat Stok Masuk & Faktur Pembelian Supplier"
                   >
                     <PackagePlus className="w-3.5 h-3.5 text-emerald-400" />
-                    + Buat Faktur Pembelian (Stok Masuk)
+                    Buat Faktur Pembelian (Stok Masuk)
                   </button>
                 </div>
 
@@ -2130,11 +2167,11 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="p-2.5 text-center">
                           {st.is_locked ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 dark:border dark:border-rose-800">
                               🔒 Terkunci (Order Tertahan)
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border dark:border-emerald-700">
                               ✓ Normal (Lancar)
                             </span>
                           )}
@@ -2420,11 +2457,11 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="p-3 text-center">
                           {currentStock < 100 ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold text-[10px]">
+                            <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 dark:border dark:border-rose-700 font-extrabold text-[11px] shadow-2xs">
                               Menipis
                             </span>
                           ) : (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border dark:border-emerald-700 font-extrabold text-[11px] shadow-2xs">
                               Aman
                             </span>
                           )}
@@ -2568,9 +2605,6 @@ export default function AdminDashboardPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-base">Buat Faktur Pembelian (Stok Masuk)</h3>
-                  <p className="text-xs text-slate-500">
-                    Mencatat stok masuk dari supplier/toko ke gudang dengan rincian model tabel.
-                  </p>
                 </div>
               </div>
               <button
@@ -2666,9 +2700,6 @@ export default function AdminDashboardPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-base">Buat Faktur Penjualan Baru (Input Manual Admin)</h3>
-                  <p className="text-xs text-slate-500">
-                    Membuat order penjualan langsung dari sisi admin untuk keperluan sales lapangan.
-                  </p>
                 </div>
               </div>
               <button
@@ -2715,7 +2746,7 @@ export default function AdminDashboardPage() {
                         </option>
                       ))}
                       {adminUser && !salesList.some((s) => s.id === adminUser.id) && (
-                        <option value={adminUser.id}>Admin Kantor ({adminUser.user_metadata?.full_name || 'Owner'})</option>
+                        <option value={adminUser.id}>Admin Kantor ({adminUser.full_name || adminUser.user_metadata?.full_name || 'Owner'})</option>
                       )}
                     </select>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -2793,7 +2824,6 @@ export default function AdminDashboardPage() {
                   <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
                     Pendaftaran Toko Pelanggan Baru
                   </h3>
-                  <p className="text-xs text-slate-500">Mendaftarkan outlet baru ke master data & rute distribusi.</p>
                 </div>
               </div>
               <button
@@ -2987,9 +3017,6 @@ export default function AdminDashboardPage() {
                   <PackagePlus className="w-4 h-4 text-emerald-600" />
                   Tambah Produk Baru (Master Stok)
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Daftarkan varian produk dengan ID/SKU unik dan susunan satuan custom bertingkat.
-                </p>
               </div>
               <button onClick={() => setIsAddProductModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -3084,9 +3111,6 @@ export default function AdminDashboardPage() {
                     <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
                       Pengaturan Satuan Produk &amp; Harga (Manual Custom)
                     </h4>
-                    <p className="text-[11px] text-slate-500">
-                      Tentukan satuan bertingkat (misal: BD, TAS, KTN, DUS, PCS) dan isi rasio konversinya ke PCS.
-                    </p>
                   </div>
                   <button
                     type="button"
@@ -3094,7 +3118,7 @@ export default function AdminDashboardPage() {
                     className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer self-start sm:self-auto"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    + Tambah Satuan
+                    Tambah Satuan
                   </button>
                 </div>
 
@@ -3217,7 +3241,6 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between border-b pb-3 dark:border-slate-800">
               <div>
                 <h3 className="font-extrabold text-base text-slate-800 dark:text-slate-100">Edit Master Produk</h3>
-                <p className="text-xs text-slate-500">Ubah kode SKU, nama, stok fisik, dan harga jual per tingkat satuan.</p>
               </div>
               <button onClick={() => setEditingProduct(null)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
@@ -3267,9 +3290,6 @@ export default function AdminDashboardPage() {
                     <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
                       Tingkat Satuan & Harga Jual Produk
                     </label>
-                    <p className="text-[11px] text-slate-500">
-                      Ubah nama satuan, rasio konversi ke PCS, dan harga jual grosir / eceran per satuan.
-                    </p>
                   </div>
                   <button
                     type="button"
@@ -3293,7 +3313,7 @@ export default function AdminDashboardPage() {
                     className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 flex items-center gap-1 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    + Tambah Satuan
+                    Tambah Satuan
                   </button>
                 </div>
 

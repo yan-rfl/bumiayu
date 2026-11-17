@@ -230,7 +230,7 @@ export default function TransactionItemsTable({
                   setSearchQuery(e.target.value);
                   setIsSearchOpen(true);
                 }}
-                placeholder="+ Cari ID Produk (SKU) atau Nama Produk untuk ditambahkan ke tabel..."
+                placeholder="Cari ID Produk (SKU) atau Nama Produk untuk ditambahkan ke tabel..."
                 className="w-full pl-9 pr-8 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               {searchQuery && (

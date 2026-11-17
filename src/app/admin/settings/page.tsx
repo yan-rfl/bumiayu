@@ -26,6 +26,9 @@ import {
   Sliders,
   Check,
   Type,
+  Smartphone,
+  Download,
+  X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import ContinuousFormInvoice, { InvoiceItem, angkaTerbilang } from '@/components/ContinuousFormInvoice';
@@ -75,8 +78,30 @@ export default function AdminSettingsPage() {
   const [adminUser, setAdminUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'invoice' | 'users' | 'desktop'>('invoice');
+  const [activeTab, setActiveTab] = useState<'general' | 'invoice'>('general');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // OS Detection & Single Download Button State
+  const [detectedOS, setDetectedOS] = useState<'windows' | 'mac' | 'android' | 'ios' | 'other'>('windows');
+  const [iosModalOpen, setIosModalOpen] = useState(false);
+
+  // Detect Client OS
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const ua = window.navigator.userAgent.toLowerCase();
+      if (/iphone|ipad|ipod/.test(ua)) {
+        setDetectedOS('ios');
+      } else if (/android/.test(ua)) {
+        setDetectedOS('android');
+      } else if (/macintosh|mac os x/.test(ua)) {
+        setDetectedOS('mac');
+      } else if (/win/.test(ua)) {
+        setDetectedOS('windows');
+      } else {
+        setDetectedOS('other');
+      }
+    }
+  }, []);
 
   // --- TAB 1: INVOICE TEMPLATE ---
   const [templateConfig, setTemplateConfig] = useState<InvoiceTemplateConfig>(DEFAULT_INVOICE_TEMPLATE);
@@ -115,7 +140,7 @@ export default function AdminSettingsPage() {
   });
   const [savingEditSales, setSavingEditSales] = useState(false);
 
-  // --- TAB 3: DESKTOP APP ---
+  // Desktop PWA State
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
 
@@ -149,14 +174,53 @@ export default function AdminSettingsPage() {
         return;
       }
 
-      setAdminUser(activeUser);
-      setAdminName(activeUser.user_metadata?.full_name || (activeUser as any).full_name || 'Owner BumiAyu');
-      setAdminUsername(activeUser.user_metadata?.username || (activeUser as any).username || 'admin');
+      // Sync data profil terbaru dari tabel profiles untuk memastikan nama selalu persisten
+      try {
+        const { data: dbProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', activeUser.id)
+          .maybeSingle();
+
+        if (dbProfile) {
+          activeUser = {
+            ...activeUser,
+            ...dbProfile,
+            user_metadata: {
+              ...(activeUser.user_metadata || {}),
+              full_name: dbProfile.full_name,
+              username: dbProfile.username,
+            },
+          };
+          localStorage.setItem('bumiayu_auth_user', JSON.stringify(activeUser));
+        }
+      } catch (e) {
+        console.error('Failed to fetch profile:', e);
+      }
+
+      const currentUser = activeUser as any;
+      setAdminUser(currentUser);
+      setAdminName(currentUser?.full_name || currentUser?.user_metadata?.full_name || 'Owner BumiAyu');
+      setAdminUsername(currentUser?.username || currentUser?.user_metadata?.username || 'admin');
       setAuthLoading(false);
       fetchUsers();
       fetchInventory();
     }
     init();
+
+    const handleStorageChange = () => {
+      try {
+        const saved = localStorage.getItem('bumiayu_auth_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setAdminUser(parsed);
+          setAdminName(parsed.full_name || parsed.user_metadata?.full_name || '');
+          setAdminUsername(parsed.username || parsed.user_metadata?.username || '');
+        }
+      } catch {}
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [router]);
 
   // Load Saved Invoice Template
@@ -238,6 +302,32 @@ export default function AdminSettingsPage() {
       });
       const data = await res.json();
       if (res.ok) {
+        const updatedUser = data.user;
+        const newFullName = updatedUser?.full_name || adminName;
+        const newUsername = updatedUser?.username || adminUsername;
+
+        const nextAdminUser = {
+          ...adminUser,
+          ...(updatedUser || {}),
+          full_name: newFullName,
+          username: newUsername,
+          user_metadata: {
+            ...(adminUser.user_metadata || {}),
+            full_name: newFullName,
+            username: newUsername,
+          },
+        };
+
+        setAdminUser(nextAdminUser);
+        setAdminName(newFullName);
+        setAdminUsername(newUsername);
+        try {
+          localStorage.setItem('bumiayu_auth_user', JSON.stringify(nextAdminUser));
+          window.dispatchEvent(new Event('storage'));
+        } catch (e) {
+          console.error(e);
+        }
+
         showToast('Profil akun Admin berhasil diperbarui!', 'success');
         setAdminNewPassword('');
         fetchUsers();
@@ -503,6 +593,18 @@ export default function AdminSettingsPage() {
         {/* Navigation Tabs - Full Width with Space Between */}
         <div className="w-full flex items-center justify-between border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-1 gap-1 sm:gap-2 no-scrollbar">
           <button
+            onClick={() => setActiveTab('general')}
+            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center cursor-pointer ${
+              activeTab === 'general'
+                ? 'border-emerald-600 text-emerald-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Sliders className="w-4 h-4 shrink-0" />
+            <span>Pengaturan Umum</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('invoice')}
             className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center cursor-pointer ${
               activeTab === 'invoice'
@@ -512,33 +614,6 @@ export default function AdminSettingsPage() {
           >
             <Printer className="w-4 h-4 shrink-0" />
             <span>Desain Template Cetak Faktur</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center cursor-pointer ${
-              activeTab === 'users'
-                ? 'border-emerald-600 text-emerald-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <Users className="w-4 h-4 shrink-0" />
-            <span>Profil Admin & Pengguna Sales</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
-              {usersList.length}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('desktop')}
-            className={`pb-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 whitespace-nowrap transition-all flex-1 min-w-max px-2.5 sm:px-3 text-center cursor-pointer ${
-              activeTab === 'desktop'
-                ? 'border-emerald-600 text-emerald-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <Laptop className="w-4 h-4 shrink-0" />
-            <span>Download Aplikasi Desktop</span>
           </button>
         </div>
 
@@ -892,11 +967,147 @@ export default function AdminSettingsPage() {
         )}
 
         {/* =================================================================== */}
-        {/* TAB 2: PROFIL ADMIN & USER MANAGEMENT                               */}
+        {/* TAB 1: PENGATURAN UMUM (Multi-Platform App, Admin & Sales User)      */}
         {/* =================================================================== */}
-        {activeTab === 'users' && (
+        {activeTab === 'general' && (
           <div className="space-y-6">
-            {/* 1. Pengaturan Akun Admin Sendiri */}
+            {/* 1. Single Smart Download Card (Auto OS Detect: Windows, Mac, Android, iOS) */}
+            <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b border-slate-200 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                    <Download className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      Download & Pasang Aplikasi BumiAyu
+                    </h2>
+                  </div>
+                </div>
+
+                {/* Detected Platform Tag */}
+                <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 self-start sm:self-auto">
+                  {detectedOS === 'windows' && '❖ Terdeteksi: Windows PC'}
+                  {detectedOS === 'mac' && ' Terdeteksi: Apple macOS'}
+                  {detectedOS === 'android' && '🤖 Terdeteksi: Android'}
+                  {detectedOS === 'ios' && ' Terdeteksi: iPhone / iPad (iOS)'}
+                  {detectedOS === 'other' && '🌐 Terdeteksi: Desktop / Web'}
+                </span>
+              </div>
+
+              {/* Single Smart Action Box */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                    {detectedOS === 'windows' && 'Shortcut Desktop Windows (.url)'}
+                    {detectedOS === 'mac' && 'Shortcut Desktop Apple macOS (.webloc)'}
+                    {detectedOS === 'android' && 'Aplikasi Web Android (PWA Mobile)'}
+                    {detectedOS === 'ios' && 'Aplikasi Web iPhone / iPad (Layar Utama)'}
+                    {detectedOS === 'other' && 'Instal Aplikasi Desktop / Web (PWA)'}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    {detectedOS === 'windows' && 'Unduh shortcut untuk membuka panel admin langsung dari Desktop atau Start Menu PC Anda.'}
+                    {detectedOS === 'mac' && 'Unduh shortcut webloc native untuk diletakkan di Dock atau Applications Mac Anda.'}
+                    {detectedOS === 'android' && 'Pasang aplikasi ke layar utama HP Android untuk penggunaan offline & pencatatan order.'}
+                    {detectedOS === 'ios' && 'Pasang aplikasi di layar utama Safari iOS layaknya aplikasi native App Store.'}
+                    {detectedOS === 'other' && 'Instal aplikasi langsung melalui browser Chrome / Edge untuk akses tanpa address bar.'}
+                  </p>
+                </div>
+
+                {/* Dynamic Single Download Button */}
+                {detectedOS === 'windows' && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadWindowsShortcut}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Shortcut Windows (.url)</span>
+                  </button>
+                )}
+
+                {detectedOS === 'mac' && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadMacShortcut}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Shortcut Mac (.webloc)</span>
+                  </button>
+                )}
+
+                {detectedOS === 'android' && (
+                  <button
+                    type="button"
+                    onClick={handleInstallPWA}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>{isInstalled ? 'Buka Aplikasi Android' : 'Pasang Aplikasi Android (PWA)'}</span>
+                  </button>
+                )}
+
+                {detectedOS === 'ios' && (
+                  <button
+                    type="button"
+                    onClick={() => setIosModalOpen(true)}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>Petunjuk Pasang di iPhone / iPad</span>
+                  </button>
+                )}
+
+                {detectedOS === 'other' && (
+                  <button
+                    type="button"
+                    onClick={handleInstallPWA}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                  >
+                    <Laptop className="w-4 h-4" />
+                    <span>{isInstalled ? 'Buka Aplikasi' : 'Instal Aplikasi Desktop'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Pilihan Perangkat Alternatif */}
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                <span className="font-semibold">Pilihan perangkat lain:</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleDownloadWindowsShortcut}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium transition-colors cursor-pointer"
+                  >
+                    ❖ Windows (.url)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadMacShortcut}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium transition-colors cursor-pointer"
+                  >
+                     Mac (.webloc)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleInstallPWA}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium transition-colors cursor-pointer"
+                  >
+                    🤖 Android (PWA)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIosModalOpen(true)}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium transition-colors cursor-pointer"
+                  >
+                     iPhone/iPad (iOS)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Pengaturan Akun Admin Sendiri */}
             <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex items-center justify-between mb-4 border-b border-slate-200 dark:border-slate-800 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -905,7 +1116,6 @@ export default function AdminSettingsPage() {
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Akun Administrator / Owner</h2>
-                    <p className="text-xs text-slate-500">Ganti nama tampilan, username, atau perbarui kata sandi admin</p>
                   </div>
                 </div>
                 <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-800">
@@ -968,7 +1178,7 @@ export default function AdminSettingsPage() {
               </form>
             </div>
 
-            {/* 2. Manajemen Pengguna Sales Lapangan */}
+            {/* 3. Manajemen Pengguna Sales Lapangan */}
             <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b border-slate-200 dark:border-slate-800 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -977,7 +1187,6 @@ export default function AdminSettingsPage() {
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Daftar Pengguna Sales Lapangan</h2>
-                    <p className="text-xs text-slate-500">Akun sales yang menggunakan aplikasi PWA mobile untuk input order toko</p>
                   </div>
                 </div>
 
@@ -995,7 +1204,7 @@ export default function AdminSettingsPage() {
                     className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
-                    <span>+ Tambah Sales Baru</span>
+                    <span>Tambah Sales Baru</span>
                   </button>
                 </div>
               </div>
@@ -1023,7 +1232,7 @@ export default function AdminSettingsPage() {
                     ) : salesUsers.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="p-6 text-center text-slate-500">
-                          Belum ada pengguna sales lapangan terdaftar. Klik <strong>+ Tambah Sales Baru</strong> di atas.
+                          Belum ada pengguna sales lapangan terdaftar. Klik <strong>Tambah Sales Baru</strong> di atas.
                         </td>
                       </tr>
                     ) : (
@@ -1064,119 +1273,6 @@ export default function AdminSettingsPage() {
                     )}
                   </tbody>
                 </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =================================================================== */}
-        {/* TAB 3: DESKTOP APP DOWNLOAD                                         */}
-        {/* =================================================================== */}
-        {activeTab === 'desktop' && (
-          <div className="space-y-6">
-            <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-              <div className="flex items-center gap-3 mb-4 border-b border-slate-200 dark:border-slate-800 pb-4">
-                <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                  <Laptop className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    Instalasi & Download Aplikasi Desktop BumiAyu
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Jalankan aplikasi BumiAyu Distributor di Windows PC atau Mac dengan performa native tanpa ribet
-                  </p>
-                </div>
-              </div>
-
-              {/* Status PWA */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-                      Aplikasi Siap Diinstal (PWA Desktop Ready)
-                    </h3>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Mendukung operasional offline lokal, print dot matrix LX-310 langsung dari desktop, dan sinkronisasi otomatis.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleInstallPWA}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
-                >
-                  <Laptop className="w-4 h-4" />
-                  <span>{isInstalled ? 'Buka Aplikasi Desktop' : 'Instal App ke Komputer Sekarang'}</span>
-                </button>
-              </div>
-
-              {/* Download Shortcuts */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Windows Shortcut */}
-                <div className="p-5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
-                        <span className="text-sky-500">❖</span> Windows PC (10 / 11)
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 font-semibold">
-                        .URL Shortcut
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mb-4">
-                      Unduh jalan pintas desktop Windows untuk membuka portal Admin secara langsung dari Desktop atau Start Menu.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDownloadWindowsShortcut}
-                    className="w-full py-2.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Download Shortcut Windows (.url)</span>
-                  </button>
-                </div>
-
-                {/* macOS Shortcut */}
-                <div className="p-5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
-                        <span className="text-amber-500"></span> Apple macOS
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-semibold">
-                        .WEBLOC Shortcut
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mb-4">
-                      Unduh file webloc native macOS yang dapat Anda letakkan di Dock atau Applications folder Mac Anda.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDownloadMacShortcut}
-                    className="w-full py-2.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Download Shortcut Mac (.webloc)</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Panduan Instalasi Browser */}
-              <div className="mt-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
-                <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  Cara Instal Melalui Google Chrome / Microsoft Edge di Laptop/PC:
-                </h4>
-                <ol className="list-decimal list-inside space-y-1.5 text-slate-600 dark:text-slate-400 pl-1">
-                  <li>Buka website ini menggunakan <strong>Google Chrome</strong> atau <strong>Microsoft Edge</strong>.</li>
-                  <li>Perhatikan ikon <strong>Instal Aplikasi (gambar komputer/tanda panah ke bawah)</strong> di ujung kanan address bar browser Anda.</li>
-                  <li>Klik tombol <strong>Instal</strong>, aplikasi akan langsung terbuka sebagai program desktop mandiri tanpa address bar browser.</li>
-                </ol>
               </div>
             </div>
           </div>
@@ -1380,6 +1476,52 @@ export default function AdminSettingsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Petunjuk Pasang iOS Safari */}
+      {iosModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-sm font-bold">Pasang di iPhone / iPad (iOS)</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIosModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <ol className="list-decimal list-inside space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+              <li>
+                Buka website ini melalui aplikasi <strong>Safari</strong> di perangkat Apple Anda.
+              </li>
+              <li>
+                Tekan tombol <strong>Bagikan (Share)</strong> — ikon kotak dengan panah ke atas di bagian bawah layar.
+              </li>
+              <li>
+                Gulir ke bawah dan ketuk opsi <strong>"Tambah ke Layar Utama" (Add to Home Screen)</strong>.
+              </li>
+              <li>
+                Tekan <strong>Tambah (Add)</strong> di pojok kanan atas. Ikon BumiAyu akan terpasang di layar utama iPhone Anda seperti aplikasi native.
+              </li>
+            </ol>
+
+            <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIosModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}

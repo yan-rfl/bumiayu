@@ -159,7 +159,7 @@ export default function SearchableStoreSelect({
                 className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-dashed border-emerald-300 dark:border-emerald-800"
               >
                 <UserPlus className="w-3.5 h-3.5" />
-                + Daftarkan Toko Baru
+                Daftarkan Toko Baru
               </button>
             )}
             <div className="relative">

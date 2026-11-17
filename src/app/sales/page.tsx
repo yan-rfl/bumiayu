@@ -1461,7 +1461,7 @@ export default function SalesPWAPage() {
               className="w-full py-2.5 px-3 rounded-xl border border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-2xs hover:bg-emerald-100 transition-colors"
             >
               <UserPlus className="w-4 h-4 text-emerald-600" />
-              + Daftarkan Toko Baru Saat Kunjungan
+              Daftarkan Toko Baru Saat Kunjungan
             </button>
 
             {/* Toggle Filter: Rute Hari Ini vs Semua Toko */}
