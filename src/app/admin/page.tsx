@@ -192,8 +192,23 @@ export default function AdminDashboardPage() {
   });
   const [savingNewExpense, setSavingNewExpense] = useState(false);
 
-  // Modal Print Preview 3-Ply Continuous Form (Single & Batch)
+  // Modal Print Preview Faktur Penjualan (Single & Batch)
   const [printingOrdersList, setPrintingOrdersList] = useState<any[]>([]);
+  const [invoiceTemplate, setInvoiceTemplate] = useState<any>(null);
+
+  const loadInvoiceTemplate = () => {
+    try {
+      const saved = localStorage.getItem('bumiayu_invoice_template');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setInvoiceTemplate(parsed);
+        return parsed;
+      }
+    } catch (e) {
+      console.error('Failed to load invoice template:', e);
+    }
+    return null;
+  };
 
   // Rekap Muatan 24 Jam State
   const [recapData, setRecapData] = useState<any | null>(null);
@@ -318,6 +333,7 @@ export default function AdminDashboardPage() {
       }
 
       setAdminUser(activeUser);
+      loadInvoiceTemplate();
       // Muat inventory fisik terlebih dahulu agar validasi stok instan & akurat
       await loadInventoryAndAudit();
       await loadOrders();
@@ -325,7 +341,7 @@ export default function AdminDashboardPage() {
     }
     init();
 
-    // Dengarkan event storage agar perubahan nama admin di tab Pengaturan langsung terupdate
+    // Dengarkan event storage agar perubahan nama admin & template cetak faktur langsung terupdate
     const handleStorageChange = () => {
       try {
         const saved = localStorage.getItem('bumiayu_auth_user');
@@ -333,6 +349,7 @@ export default function AdminDashboardPage() {
           setAdminUser(JSON.parse(saved));
         }
       } catch {}
+      loadInvoiceTemplate();
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
@@ -722,8 +739,9 @@ export default function AdminDashboardPage() {
     );
   };
 
-  // Cetak Batch 3-Ply Terpilih
+  // Cetak Faktur Terpilih (Batch)
   const handleBatchPrint = () => {
+    loadInvoiceTemplate();
     const selectedApproved = orders.filter(
       (o) => selectedOrderIds.includes(o.id) && o.status === 'APPROVED'
     );
@@ -1489,9 +1507,10 @@ export default function AdminDashboardPage() {
                       <button
                         onClick={handleBatchPrint}
                         className="h-8 px-3.5 rounded-xl bg-slate-900 hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs shadow-xs border border-slate-800 dark:border-slate-600 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                        title="Cetak faktur penjualan yang dipilih"
                       >
                         <Printer className="w-3.5 h-3.5 text-amber-400 dark:text-amber-300" />
-                        Cetak Batch 3-Ply ({selectedApprovedCount})
+                        Cetak Faktur ({selectedApprovedCount})
                       </button>
                     )}
                   </div>
@@ -1657,15 +1676,18 @@ export default function AdminDashboardPage() {
                                   </button>
                                 )}
 
-                                {/* Tombol Cetak Faktur 3-Ply Continuous Form (Ukuran w-28 h-8) */}
+                                {/* Tombol Cetak Faktur Penjualan */}
                                 {order.status === 'APPROVED' && (
                                   <button
-                                    onClick={() => setPrintingOrdersList([order])}
-                                    title="Cetak Faktur 3-Ply Continuous Form"
-                                    className="w-28 h-8 rounded-xl bg-slate-900 hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-[11px] shadow-2xs border border-slate-800 dark:border-slate-600 flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95"
+                                    onClick={() => {
+                                      loadInvoiceTemplate();
+                                      setPrintingOrdersList([order]);
+                                    }}
+                                    title="Cetak Faktur Penjualan"
+                                    className="w-28 h-8 rounded-xl bg-slate-900 hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-[11px] shadow-2xs border border-slate-800 dark:border-slate-600 flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95 cursor-pointer"
                                   >
                                     <Printer className="w-3.5 h-3.5 text-amber-400 dark:text-amber-300" />
-                                    Cetak 3-Ply
+                                    Cetak Faktur
                                   </button>
                                 )}
                               </div>
@@ -2954,7 +2976,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* MODAL PRINT PREVIEW 3-PLY CONTINUOUS FORM (SINGLE & BATCH) */}
+      {/* MODAL PRINT PREVIEW FAKTUR PENJUALAN */}
       {printingOrdersList.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
           <div className="my-auto w-full max-w-4xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 space-y-6">
@@ -2962,23 +2984,23 @@ export default function AdminDashboardPage() {
               <div>
                 <h3 className="font-bold text-base flex items-center gap-2">
                   <Printer className="w-4 h-4 text-emerald-600" />
-                  Pratinjau Cetak Faktur Continuous Form 3-Ply (Epson LX-310)
+                  Pratinjau Cetak Faktur Penjualan
                 </h3>
                 <p className="text-xs text-slate-500">
                   {printingOrdersList.length > 1
-                    ? `Mode Batch: Mencetak ${printingOrdersList.length} faktur terpilih sekaligus ke kertas continuous form.`
-                    : 'Format Half-Letter (9.5 x 5.5 inch) rangkap 3: Putih (Toko), Pink (Supir), Kuning (Arsip).'}
+                    ? `Mencetak ${printingOrdersList.length} faktur terpilih sekaligus ke printer.`
+                    : 'Format faktur penjualan siap dicetak sesuai konfigurasi template.'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
-                  Cetak {printingOrdersList.length > 1 ? `Batch (${printingOrdersList.length})` : 'Sekarang'}
+                  Cetak {printingOrdersList.length > 1 ? `Semua (${printingOrdersList.length})` : 'Faktur'}
                 </button>
-                <button onClick={() => setPrintingOrdersList([])} className="p-1 text-slate-400 hover:text-slate-600">
+                <button onClick={() => setPrintingOrdersList([])} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -2992,12 +3014,12 @@ export default function AdminDashboardPage() {
                     Faktur #{oIdx + 1} dari {printingOrdersList.length}: {orderItem.store?.name} ({orderItem.order_no})
                   </div>
 
-                  {/* Cetak 1 Dokumen Faktur (Kertas 3-Ply Carbon NCR otomatis tercetak ke 3 lembar secara fisik) */}
                   <ContinuousFormInvoice
                     invoiceNo={`INV-${orderItem.order_no.replace('SO-', '')}`}
                     orderNo={orderItem.order_no}
                     storeName={orderItem.store?.name}
                     storeAddress={orderItem.store?.address}
+                    storePhone={orderItem.store?.phone_wa}
                     salesName={orderItem.sales?.full_name || 'Admin'}
                     orderDate={orderItem.order_date}
                     dueDate={orderItem.store?.top_days > 0 ? `${orderItem.store.top_days} Hari (TOP)` : 'Tunai'}
@@ -3008,9 +3030,11 @@ export default function AdminDashboardPage() {
                       unit_name: it.unit_name,
                       quantity: it.quantity,
                       unit_price: it.unit_price,
+                      discount_percent: it.discount_percent || 0,
                       total_price: it.total_price,
                     }))}
                     grandTotal={orderItem.grand_total}
+                    customTemplate={invoiceTemplate || undefined}
                   />
                 </div>
               ))}
