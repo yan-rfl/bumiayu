@@ -2491,11 +2491,11 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="p-3 text-center">
                           {currentStock < 100 ? (
-                            <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 dark:border dark:border-rose-700 font-extrabold text-[11px] shadow-2xs">
+                            <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950 dark:text-rose-200 dark:border-rose-700 font-extrabold text-[11px] shadow-2xs">
                               Menipis
                             </span>
                           ) : (
-                            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border dark:border-emerald-700 font-extrabold text-[11px] shadow-2xs">
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-700 text-white dark:bg-emerald-600 dark:text-white font-extrabold text-[11px] shadow-2xs">
                               Aman
                             </span>
                           )}
