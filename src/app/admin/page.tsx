@@ -19,6 +19,9 @@ import {
   ShieldCheck,
   Search,
   Filter,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   CheckSquare,
   Square,
   Plus,
@@ -220,6 +223,12 @@ export default function AdminDashboardPage() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [refreshingSnapshot, setRefreshingSnapshot] = useState(false);
 
+  // Search & Sorting Produk Master
+  const [searchInventory, setSearchInventory] = useState('');
+  const [categoryInventoryFilter, setCategoryInventoryFilter] = useState('ALL');
+  const [sortInventoryBy, setSortInventoryBy] = useState<'sku' | 'name' | 'stock' | 'status'>('sku');
+  const [sortInventoryOrder, setSortInventoryOrder] = useState<'asc' | 'desc'>('asc');
+
   // Modal Tambah Produk Baru
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [newProductForm, setNewProductForm] = useState({
@@ -271,6 +280,75 @@ export default function AdminDashboardPage() {
     const exists = inventoryList.some((p) => (p.sku || '').toUpperCase() === clean);
     return exists ? 'DUPLICATE' : 'AVAILABLE';
   }, [newProductForm.sku, inventoryList]);
+
+  // Kategori unik dari daftar produk master
+  const availableInventoryCategories = useMemo(() => {
+    const cats = new Set<string>();
+    inventoryList.forEach((p) => {
+      if (p.category && p.category.trim()) {
+        cats.add(p.category.trim().toUpperCase());
+      }
+    });
+    return Array.from(cats).sort();
+  }, [inventoryList]);
+
+  // Filter & Sorting Produk Sisi Admin
+  const filteredAndSortedInventory = useMemo(() => {
+    let result = [...inventoryList];
+
+    // Filter Pencarian (SKU, Nama, Kategori, atau Nama Satuan)
+    if (searchInventory.trim()) {
+      const q = searchInventory.toLowerCase().trim();
+      result = result.filter((p) => {
+        const skuMatch = (p.sku || '').toLowerCase().includes(q);
+        const nameMatch = (p.name || '').toLowerCase().includes(q);
+        const catMatch = (p.category || '').toLowerCase().includes(q);
+        const unitMatch = (p.units || []).some((u: any) =>
+          (u.unit_name || '').toLowerCase().includes(q)
+        );
+        return skuMatch || nameMatch || catMatch || unitMatch;
+      });
+    }
+
+    // Filter Kategori
+    if (categoryInventoryFilter !== 'ALL') {
+      result = result.filter(
+        (p) => (p.category || '').toUpperCase() === categoryInventoryFilter.toUpperCase()
+      );
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      let comparison = 0;
+      if (sortInventoryBy === 'sku') {
+        comparison = (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
+      } else if (sortInventoryBy === 'name') {
+        comparison = (a.name || '').localeCompare(b.name || '', undefined, { numeric: true });
+      } else if (sortInventoryBy === 'stock') {
+        const stockA = Number(a.stock_base_unit || 0);
+        const stockB = Number(b.stock_base_unit || 0);
+        comparison = stockA - stockB;
+      } else if (sortInventoryBy === 'status') {
+        const stockA = Number(a.stock_base_unit || 0);
+        const stockB = Number(b.stock_base_unit || 0);
+        const statusA = stockA < 100 ? 0 : 1;
+        const statusB = stockB < 100 ? 0 : 1;
+        comparison = statusA - statusB;
+      }
+      return sortInventoryOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [inventoryList, searchInventory, categoryInventoryFilter, sortInventoryBy, sortInventoryOrder]);
+
+  const handleSortInventory = (column: 'sku' | 'name' | 'stock' | 'status') => {
+    if (sortInventoryBy === column) {
+      setSortInventoryOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortInventoryBy(column);
+      setSortInventoryOrder('asc');
+    }
+  };
 
   // Modal Edit Produk Master
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
@@ -2457,63 +2535,245 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
+            {/* TOOLBAR PENCARIAN & PENGURUTAN (SEARCH & SORT) */}
+            <div className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                {/* Search Input Box */}
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchInventory}
+                    onChange={(e) => setSearchInventory(e.target.value)}
+                    placeholder="Cari berdasarkan SKU, nama produk, kategori, satuan..."
+                    className="w-full pl-10 pr-9 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-800 dark:text-slate-100"
+                  />
+                  {searchInventory && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchInventory('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Kategori & Selector Pengurutan */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {/* Category Filter Dropdown */}
+                  {availableInventoryCategories.length > 0 && (
+                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5">
+                      <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <select
+                        value={categoryInventoryFilter}
+                        onChange={(e) => setCategoryInventoryFilter(e.target.value)}
+                        className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer pr-1"
+                      >
+                        <option value="ALL">Semua Kategori ({inventoryList.length})</option>
+                        {availableInventoryCategories.map((cat) => {
+                          const count = inventoryList.filter((p) => (p.category || '').toUpperCase() === cat).length;
+                          return (
+                            <option key={cat} value={cat}>
+                              {cat} ({count})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Quick Sort Dropdown */}
+                  <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5">
+                    <span className="text-slate-400 font-medium shrink-0">Urut:</span>
+                    <select
+                      value={`${sortInventoryBy}-${sortInventoryOrder}`}
+                      onChange={(e) => {
+                        const [col, ord] = e.target.value.split('-') as [any, any];
+                        setSortInventoryBy(col);
+                        setSortInventoryOrder(ord);
+                      }}
+                      className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer pr-1"
+                    >
+                      <option value="sku-asc">SKU (A - Z)</option>
+                      <option value="sku-desc">SKU (Z - A)</option>
+                      <option value="name-asc">Nama Produk (A - Z)</option>
+                      <option value="name-desc">Nama Produk (Z - A)</option>
+                      <option value="stock-desc">Stok Gudang (Terbanyak)</option>
+                      <option value="stock-asc">Stok Gudang (Tersedikit)</option>
+                      <option value="status-asc">Status (Menipis Duluan)</option>
+                      <option value="status-desc">Status (Aman Duluan)</option>
+                    </select>
+                  </div>
+
+                  {/* Tombol Reset Filter jika aktif */}
+                  {(searchInventory || categoryInventoryFilter !== 'ALL') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchInventory('');
+                        setCategoryInventoryFilter('ALL');
+                      }}
+                      className="px-2.5 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer"
+                    >
+                      Reset Filter
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Bar Jumlah Produk & Tip */}
+              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <span>
+                  Menampilkan <strong>{filteredAndSortedInventory.length}</strong> dari <strong>{inventoryList.length}</strong> produk
+                  {searchInventory && <span className="text-emerald-600 dark:text-emerald-400 ml-1 font-medium">untuk &ldquo;{searchInventory}&rdquo;</span>}
+                </span>
+                <span className="hidden sm:inline text-slate-400">
+                  Tip: Klik judul kolom tabel untuk mengurutkan secara cepat
+                </span>
+              </div>
+            </div>
+
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden p-4">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 uppercase text-[11px]">
-                    <th className="p-3">Kode Unik (SKU)</th>
-                    <th className="p-3">Nama Produk</th>
-                    <th className="p-3">Satuan & Harga Jual</th>
-                    <th className="p-3 text-right">Stok Fisik Gudang</th>
-                    <th className="p-3 text-center">Status</th>
-                    <th className="p-3 text-center w-24">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {inventoryList.map((p) => {
-                    const currentStock = p.stock_base_unit || 0;
-                    return (
-                      <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-950/50">
-                        <td className="p-3 font-mono font-bold text-emerald-600">{p.sku}</td>
-                        <td className="p-3 font-bold">{p.name}</td>
-                        <td className="p-3 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
-                          {p.units?.map((u: any) => (
-                            <span key={u.id || u.unit_name} className="inline-block mr-2.5">
-                              <strong className="text-slate-800 dark:text-slate-200">{u.unit_name}:</strong> Rp {Number(u.price_grosir || 0).toLocaleString('id-ID')}
-                              {Number(u.purchase_price) > 0 && (
-                                <span className="text-slate-400 text-[10px]"> (Pokok: Rp {Number(u.purchase_price).toLocaleString('id-ID')})</span>
-                              )}
-                            </span>
-                          ))}
-                        </td>
-                        <td className="p-3 text-right font-extrabold text-sm">
-                          {currentStock.toLocaleString('id-ID')} PCS
-                        </td>
-                        <td className="p-3 text-center">
-                          {currentStock < 100 ? (
-                            <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950 dark:text-rose-200 dark:border-rose-700 font-extrabold text-[11px] shadow-2xs">
-                              Menipis
-                            </span>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 uppercase text-[11px]">
+                      {/* Kolom SKU dengan Sorting */}
+                      <th
+                        onClick={() => handleSortInventory('sku')}
+                        className="p-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors select-none"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>Kode Unik (SKU)</span>
+                          {sortInventoryBy === 'sku' ? (
+                            sortInventoryOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <ArrowDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                           ) : (
-                            <span className="px-2.5 py-1 rounded-full bg-emerald-700 text-white dark:bg-emerald-600 dark:text-white font-extrabold text-[11px] shadow-2xs">
-                              Aman
-                            </span>
+                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-60" />
                           )}
-                        </td>
-                        <td className="p-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => setEditingProduct(p)}
-                            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300"
-                          >
-                            Edit
-                          </button>
+                        </div>
+                      </th>
+
+                      {/* Kolom Nama dengan Sorting */}
+                      <th
+                        onClick={() => handleSortInventory('name')}
+                        className="p-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors select-none"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>Nama Produk</span>
+                          {sortInventoryBy === 'name' ? (
+                            sortInventoryOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <ArrowDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-60" />
+                          )}
+                        </div>
+                      </th>
+
+                      <th className="p-3">Satuan & Harga Jual</th>
+
+                      {/* Kolom Stok dengan Sorting */}
+                      <th
+                        onClick={() => handleSortInventory('stock')}
+                        className="p-3 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors select-none"
+                      >
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span>Stok Fisik Gudang</span>
+                          {sortInventoryBy === 'stock' ? (
+                            sortInventoryOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <ArrowDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-60" />
+                          )}
+                        </div>
+                      </th>
+
+                      {/* Kolom Status dengan Sorting */}
+                      <th
+                        onClick={() => handleSortInventory('status')}
+                        className="p-3 text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors select-none"
+                      >
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span>Status</span>
+                          {sortInventoryBy === 'status' ? (
+                            sortInventoryOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <ArrowDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-60" />
+                          )}
+                        </div>
+                      </th>
+
+                      <th className="p-3 text-center w-24">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredAndSortedInventory.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-slate-400">
+                          <div className="max-w-xs mx-auto space-y-2">
+                            <Boxes className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
+                            <p className="font-semibold text-xs text-slate-700 dark:text-slate-300">Produk tidak ditemukan</p>
+                            <p className="text-[11px] text-slate-400">
+                              Tidak ada produk yang cocok dengan pencarian &ldquo;{searchInventory}&rdquo;
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchInventory('');
+                                setCategoryInventoryFilter('ALL');
+                              }}
+                              className="px-3 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                            >
+                              Reset Pencarian
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredAndSortedInventory.map((p) => {
+                        const currentStock = p.stock_base_unit || 0;
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-950/50">
+                            <td className="p-3 font-mono font-bold text-emerald-600 dark:text-emerald-400">{p.sku}</td>
+                            <td className="p-3 font-bold">{p.name}</td>
+                            <td className="p-3 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
+                              {p.units?.map((u: any) => (
+                                <span key={u.id || u.unit_name} className="inline-block mr-2.5">
+                                  <strong className="text-slate-800 dark:text-slate-200">{u.unit_name}:</strong> Rp {Number(u.price_grosir || 0).toLocaleString('id-ID')}
+                                  {Number(u.purchase_price) > 0 && (
+                                    <span className="text-slate-400 text-[10px]"> (Pokok: Rp {Number(u.purchase_price).toLocaleString('id-ID')})</span>
+                                  )}
+                                </span>
+                              ))}
+                            </td>
+                            <td className="p-3 text-right font-extrabold text-sm">
+                              {currentStock.toLocaleString('id-ID')} PCS
+                            </td>
+                            <td className="p-3 text-center">
+                              {currentStock < 100 ? (
+                                <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950 dark:text-rose-200 dark:border-rose-700 font-extrabold text-[11px] shadow-2xs">
+                                  Menipis
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-full bg-emerald-700 text-white dark:bg-emerald-600 dark:text-white font-extrabold text-[11px] shadow-2xs">
+                                  Aman
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setEditingProduct(p)}
+                                className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

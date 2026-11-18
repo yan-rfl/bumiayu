@@ -917,8 +917,9 @@ export default function SalesPWAPage() {
             </div>
 
             {loadingData ? (
-              <div className="py-8 text-center text-xs text-slate-400">
-                Memuat katalog produk...
+              <div className="py-10 flex flex-col items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <RefreshCw className="w-5 h-5 animate-spin text-emerald-600 dark:text-emerald-400" />
+                <span className="font-semibold">Memuat data katalog produk...</span>
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400">
