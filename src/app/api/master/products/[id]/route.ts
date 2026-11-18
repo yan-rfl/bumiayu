@@ -56,19 +56,35 @@ export async function PATCH(
       return NextResponse.json({ error: updateErr.message }, { status: 400 });
     }
 
-    // 4. Update Satuan & Harga jika dikirim
+    // 4. Update Satuan & Harga Pokok & Harga Jual
     if (units && Array.isArray(units)) {
       for (const u of units) {
-        if (u.id) {
+        const hargaPokok = Number(u.purchase_price) || 0;
+        const hargaJual = Number(u.price_grosir ?? u.price_jual) || 0;
+
+        if (u.id && !String(u.id).startsWith('temp-')) {
           await supabase
             .from('product_units')
             .update({
+              unit_name: (u.unit_name || '').toUpperCase(),
               conversion_qty: Number(u.conversion_qty) || 1,
-              purchase_price: Number(u.purchase_price) || 0,
-              price_grosir: Number(u.price_grosir) || 0,
-              price_ecer: Number(u.price_ecer) || 0,
+              purchase_price: hargaPokok,
+              price_grosir: hargaJual,
+              price_ecer: hargaJual,
             })
             .eq('id', u.id);
+        } else {
+          await supabase
+            .from('product_units')
+            .insert({
+              product_id: id,
+              unit_name: (u.unit_name || '').toUpperCase(),
+              conversion_qty: Number(u.conversion_qty) || 1,
+              purchase_price: hargaPokok,
+              price_grosir: hargaJual,
+              price_ecer: hargaJual,
+              is_default_sales: !!u.is_default_sales,
+            });
         }
       }
     }

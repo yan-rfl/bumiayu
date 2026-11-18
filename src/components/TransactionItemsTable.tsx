@@ -298,7 +298,9 @@ export default function TransactionItemsTable({
                 <th className="py-2.5 px-3 min-w-[120px]">ID Produk (SKU)</th>
                 <th className="py-2.5 px-3 min-w-[200px]">Nama Produk</th>
                 <th className="py-2.5 px-3 min-w-[170px] text-center">Quantity & Satuan</th>
-                <th className="py-2.5 px-3 min-w-[130px] text-right">Harga Satuan (Rp)</th>
+                <th className="py-2.5 px-3 min-w-[130px] text-right">
+                  {type === 'PURCHASE' ? 'Harga Pokok (Rp)' : 'Harga Jual (Rp)'}
+                </th>
                 <th className="py-2.5 px-3 min-w-[100px] text-center">Diskon (%)</th>
                 <th className="py-2.5 px-3 min-w-[130px] text-right">Subtotal (Rp)</th>
               </tr>

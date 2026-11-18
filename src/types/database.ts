@@ -63,9 +63,9 @@ export interface ProductUnit {
   product_id: string;
   unit_name: 'PCS' | 'BD' | 'KTN' | string;
   conversion_qty: number; // PCS=1, BD=3, KTN=variatif
-  purchase_price: number;
-  price_grosir: number;
-  price_ecer: number;
+  purchase_price: number; // Harga Pokok (Modal Supplier dari Faktur Pembelian)
+  price_grosir: number; // Harga Jual (ke Toko Pelanggan)
+  price_ecer?: number; // Legacy / backward-compat
   is_default_sales: boolean;
 }
 

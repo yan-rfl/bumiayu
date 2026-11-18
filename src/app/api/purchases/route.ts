@@ -94,6 +94,14 @@ export async function POST(req: NextRequest) {
         total_price: Number(it.total_price) || 0,
       });
 
+      // Update Harga Pokok (purchase_price) di product_units sesuai harga faktur pembelian terbaru (seperti di iPos 5)
+      if (it.product_unit_id && Number(it.unit_price) > 0) {
+        await supabase
+          .from('product_units')
+          .update({ purchase_price: Number(it.unit_price) })
+          .eq('id', it.product_unit_id);
+      }
+
       // Update stok gudang (TAMBAH STOK FISIK)
       const { data: existingStock } = await supabase
         .from('inventory_stocks')

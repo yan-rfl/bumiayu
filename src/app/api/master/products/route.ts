@@ -97,20 +97,24 @@ export async function POST(req: NextRequest) {
     const productId = newProd.id;
 
     // 3. Insert Satuan Bertingkat (Default: KTN, BD, PCS jika tidak diatur custom)
+    // Sistem BumiAyu kini disederhanakan: purchase_price = Harga Pokok, price_grosir = Harga Jual
     const defaultUnits = units && units.length > 0 ? units : [
-      { unit_name: 'KTN', conversion_qty: 24, purchase_price: 60000, price_grosir: 68000, price_ecer: 75000, is_default_sales: true },
-      { unit_name: 'BD', conversion_qty: 3, purchase_price: 7500, price_grosir: 8600, price_ecer: 9500, is_default_sales: false },
-      { unit_name: 'PCS', conversion_qty: 1, purchase_price: 2500, price_grosir: 2900, price_ecer: 3200, is_default_sales: false },
+      { unit_name: 'KTN', conversion_qty: 24, purchase_price: 60000, price_grosir: 68000, price_ecer: 68000, is_default_sales: true },
+      { unit_name: 'BD', conversion_qty: 3, purchase_price: 7500, price_grosir: 8600, price_ecer: 8600, is_default_sales: false },
+      { unit_name: 'PCS', conversion_qty: 1, purchase_price: 2500, price_grosir: 2900, price_ecer: 2900, is_default_sales: false },
     ];
 
     for (const u of defaultUnits) {
+      const hargaPokok = Number(u.purchase_price) || 0;
+      const hargaJual = Number(u.price_grosir ?? u.price_jual) || 0;
+
       await supabase.from('product_units').insert({
         product_id: productId,
         unit_name: (u.unit_name || '').toUpperCase(),
         conversion_qty: Number(u.conversion_qty) || 1,
-        purchase_price: Number(u.purchase_price) || 0,
-        price_grosir: Number(u.price_grosir) || 0,
-        price_ecer: Number(u.price_ecer) || 0,
+        purchase_price: hargaPokok,
+        price_grosir: hargaJual,
+        price_ecer: hargaJual, // diselaraskan dengan harga jual
         is_default_sales: !!u.is_default_sales,
       });
     }

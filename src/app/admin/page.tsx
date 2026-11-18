@@ -222,9 +222,9 @@ export default function AdminDashboardPage() {
     price_ecer: number;
     is_default_sales: boolean;
   }>>([
-    { id: '1', unit_name: 'KTN', conversion_qty: 24, purchase_price: 60000, price_grosir: 68000, price_ecer: 75000, is_default_sales: true },
-    { id: '2', unit_name: 'BD', conversion_qty: 3, purchase_price: 7500, price_grosir: 8600, price_ecer: 9500, is_default_sales: false },
-    { id: '3', unit_name: 'PCS', conversion_qty: 1, purchase_price: 2500, price_grosir: 2900, price_ecer: 3200, is_default_sales: false },
+    { id: '1', unit_name: 'KTN', conversion_qty: 24, purchase_price: 60000, price_grosir: 68000, price_ecer: 68000, is_default_sales: true },
+    { id: '2', unit_name: 'BD', conversion_qty: 3, purchase_price: 7500, price_grosir: 8600, price_ecer: 8600, is_default_sales: false },
+    { id: '3', unit_name: 'PCS', conversion_qty: 1, purchase_price: 2500, price_grosir: 2900, price_ecer: 2900, is_default_sales: false },
   ]);
   const [savingNewProduct, setSavingNewProduct] = useState(false);
 
@@ -1022,7 +1022,7 @@ export default function AdminDashboardPage() {
         conversion_qty: Number(u.conversion_qty) || 1,
         purchase_price: Number(u.purchase_price) || 0,
         price_grosir: Number(u.price_grosir) || 0,
-        price_ecer: Number(u.price_ecer) || 0,
+        price_ecer: Number(u.price_grosir) || 0,
         is_default_sales: Boolean(u.is_default_sales),
       }));
 
@@ -1052,9 +1052,9 @@ export default function AdminDashboardPage() {
         initial_stock_pcs: 240,
       });
       setProductUnits([
-        { id: '1', unit_name: 'KTN', conversion_qty: 24, purchase_price: 60000, price_grosir: 68000, price_ecer: 75000, is_default_sales: true },
-        { id: '2', unit_name: 'BD', conversion_qty: 3, purchase_price: 7500, price_grosir: 8600, price_ecer: 9500, is_default_sales: false },
-        { id: '3', unit_name: 'PCS', conversion_qty: 1, purchase_price: 2500, price_grosir: 2900, price_ecer: 3200, is_default_sales: false },
+        { id: '1', unit_name: 'KTN', conversion_qty: 24, purchase_price: 60000, price_grosir: 68000, price_ecer: 68000, is_default_sales: true },
+        { id: '2', unit_name: 'BD', conversion_qty: 3, purchase_price: 7500, price_grosir: 8600, price_ecer: 8600, is_default_sales: false },
+        { id: '3', unit_name: 'PCS', conversion_qty: 1, purchase_price: 2500, price_grosir: 2900, price_ecer: 2900, is_default_sales: false },
       ]);
       await loadInventoryAndAudit();
     } catch (err: any) {
@@ -1125,7 +1125,12 @@ export default function AdminDashboardPage() {
           name: editingProduct.name,
           category: editingProduct.category,
           stock_base_unit: Number(editingProduct.stock_base_unit),
-          units: editingProduct.units,
+          units: (editingProduct.units || []).map((u: any) => ({
+            ...u,
+            purchase_price: Number(u.purchase_price) || 0,
+            price_grosir: Number(u.price_grosir) || 0,
+            price_ecer: Number(u.price_grosir) || 0,
+          })),
           admin_id: adminUser?.id,
         }),
       });
@@ -2449,8 +2454,15 @@ export default function AdminDashboardPage() {
                       <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-950/50">
                         <td className="p-3 font-mono font-bold text-emerald-600">{p.sku}</td>
                         <td className="p-3 font-bold">{p.name}</td>
-                        <td className="p-3 text-slate-600 dark:text-slate-400">
-                          {p.units?.map((u: any) => `${u.unit_name}: Rp ${Number(u.price_grosir).toLocaleString('id-ID')}`).join(' | ')}
+                        <td className="p-3 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
+                          {p.units?.map((u: any) => (
+                            <span key={u.id || u.unit_name} className="inline-block mr-2.5">
+                              <strong className="text-slate-800 dark:text-slate-200">{u.unit_name}:</strong> Rp {Number(u.price_grosir || 0).toLocaleString('id-ID')}
+                              {Number(u.purchase_price) > 0 && (
+                                <span className="text-slate-400 text-[10px]"> (Pokok: Rp {Number(u.purchase_price).toLocaleString('id-ID')})</span>
+                              )}
+                            </span>
+                          ))}
                         </td>
                         <td className="p-3 text-right font-extrabold text-sm">
                           {currentStock.toLocaleString('id-ID')} PCS
@@ -3187,23 +3199,29 @@ export default function AdminDashboardPage() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-800 text-xs">
                         <div>
-                          <span className="text-[10px] text-slate-500 block font-semibold mb-0.5">Harga Jual Grosir (Rp):</span>
+                          <span className="text-[10px] text-slate-500 block font-semibold mb-0.5">Harga Pokok (Modal Supplier Rp):</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={u.purchase_price}
+                            onChange={(e) => handleUpdateUnitField(idx, 'purchase_price', Number(e.target.value))}
+                            className="w-full px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block font-semibold mb-0.5">Harga Jual (ke Toko Pelanggan Rp):</span>
                           <input
                             type="number"
                             min="0"
                             value={u.price_grosir}
-                            onChange={(e) => handleUpdateUnitField(idx, 'price_grosir', Number(e.target.value))}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              handleUpdateUnitField(idx, 'price_grosir', val);
+                              handleUpdateUnitField(idx, 'price_ecer', val);
+                            }}
                             className="w-full px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 font-mono font-bold text-emerald-700 dark:text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          />
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-500 block font-semibold mb-0.5">Harga Jual Ecer (Rp):</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={u.price_ecer}
-                            onChange={(e) => handleUpdateUnitField(idx, 'price_ecer', Number(e.target.value))}
-                            className="w-full px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            placeholder="0"
                           />
                         </div>
                       </div>
@@ -3380,7 +3398,25 @@ export default function AdminDashboardPage() {
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         <div>
                           <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
-                            Harga Jual Grosir (Rp) <span className="text-rose-500">*</span>
+                            Harga Pokok (Modal Supplier Rp)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={u.purchase_price || 0}
+                            onChange={(e) => {
+                              const updatedUnits = [...editingProduct.units];
+                              updatedUnits[uIdx] = { ...updatedUnits[uIdx], purchase_price: Number(e.target.value) || 0 };
+                              setEditingProduct({ ...editingProduct, units: updatedUnits });
+                            }}
+                            className="w-full px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono"
+                            placeholder="0"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
+                            Harga Jual (ke Toko Pelanggan Rp) <span className="text-rose-500">*</span>
                           </label>
                           <input
                             type="number"
@@ -3388,29 +3424,17 @@ export default function AdminDashboardPage() {
                             required
                             value={u.price_grosir || 0}
                             onChange={(e) => {
+                              const val = Number(e.target.value) || 0;
                               const updatedUnits = [...editingProduct.units];
-                              updatedUnits[uIdx] = { ...updatedUnits[uIdx], price_grosir: Number(e.target.value) || 0 };
+                              updatedUnits[uIdx] = {
+                                ...updatedUnits[uIdx],
+                                price_grosir: val,
+                                price_ecer: val,
+                              };
                               setEditingProduct({ ...editingProduct, units: updatedUnits });
                             }}
-                            className="w-full px-2.5 py-1 text-xs font-extrabold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
-                            Harga Jual Ecer (Rp) <span className="text-rose-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            required
-                            value={u.price_ecer || 0}
-                            onChange={(e) => {
-                              const updatedUnits = [...editingProduct.units];
-                              updatedUnits[uIdx] = { ...updatedUnits[uIdx], price_ecer: Number(e.target.value) || 0 };
-                              setEditingProduct({ ...editingProduct, units: updatedUnits });
-                            }}
-                            className="w-full px-2.5 py-1 text-xs font-extrabold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                            className="w-full px-2.5 py-1 text-xs font-extrabold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 font-mono"
+                            placeholder="0"
                           />
                         </div>
                       </div>
